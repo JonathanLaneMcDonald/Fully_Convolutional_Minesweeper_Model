@@ -1,10 +1,10 @@
 
 //g++ main.cpp -o minesweeper -lpthread -std=c++11 -O2
 
-#include <thread>
-#include <mutex>
-
 #include "minesweeper.h"
+
+#include <mutex>
+#include <thread>
 
 void play_games(int id, int rows, int cols, int mines, int samples, std::mutex* mutex)
 {
@@ -35,16 +35,16 @@ void play_games(int id, int rows, int cols, int mines, int samples, std::mutex* 
 	return;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	std::mutex mutex;
 	std::vector<std::thread> workers(0);
 
-	int rows = 16;
-	int cols = 16;
-	int mines = 40;
-	int samples = 1<<20;
-	int threads = 4;
+	int rows = std::stoi(argv[1]);
+	int cols = std::stoi(argv[2]);
+	int mines = std::stoi(argv[3]);
+	int samples = std::stoi(argv[4]);
+	int threads = std::stoi(argv[5]);
 	
 	for (int i = 0; i < threads; i++)
 	{
