@@ -8,6 +8,7 @@ from copy import copy
 from MinesweeperClass import *
 
 from numpy.random import random as npr
+from numpy.random import shuffle
 
 if __name__ == '__main__':
 	from keras.models import Sequential, model_from_json, Model
@@ -188,6 +189,50 @@ def compact_features_to_features_and_labels(string, shape):
 				labels[r][c][0] = 1
 	
 	return features, labels
+
+def compact_frame_to_linear_features(string):
+
+	features = np.zeros(len(string) * CHANNELS, dtype=np.uint8)
+	
+	for p in range(len(string)):
+		if string[p].isdigit():
+			features[p*CHANNELS + int(string[p])] = 1
+
+	return features
+
+def compact_frame_to_linear_labels(string):
+
+	labels = np.zeros(len(string) * CHANNELS, dtype=np.uint8)
+	
+	for p in range(len(string)):
+		if string[p] == 's':
+			labels[p] = 1
+
+	return labels
+
+def compact_frame_to_convolutional_features(string, shape):
+	rows, cols = shape
+
+	features = np.zeros((rows, cols, CHANNELS), dtype=np.uint8)
+	
+	for r in range(rows):
+		for c in range(cols):
+			if string[r*cols + c].isdigit():
+				features[r][c][int(string[r*cols + c])] = 1
+	
+	return features
+
+def compact_frame_to_convolutional_labels(string, shape):
+	rows, cols = shape
+
+	labels = np.zeros((rows, cols, 1), dtype=np.uint8)
+	
+	for r in range(rows):
+		for c in range(cols):
+			if string[r*cols + c] == 's':
+				labels[r][c][0] = 1
+	
+	return labels
 
 def board_to_features(game):
 	rows = game.rows
@@ -373,7 +418,39 @@ def exploratory_model_training(model):
 def rl_training(model):
 	pass
 
-def train_model_from_file(filename, model, shape):
+def compact_frames_to_features(dataset, shape, is_convolutional=True):
+	features = None
+
+	if is_convolutional:
+		features = np.zeros((len(dataset), shape[0], shape[1], CHANNELS), dtype=np.uint8)
+	else:
+		features = np.zeros((len(dataset), shape[0] * shape[1] * CHANNELS), dtype=np.uint8)
+
+	for d in range(len(dataset)):
+		if is_convolutional:
+			features[d] = compact_frame_to_convolutional_features(dataset[d], shape)
+		else:
+			features[d] = compact_frame_to_linear_features(dataset[d])
+
+	return features
+
+def compact_frames_to_labels(dataset, shape, is_convolutional=True):
+	labels = None
+
+	if is_convolutional:
+		labels = np.zeros((len(dataset), shape[0], shape[1], 1), dtype=np.uint8)
+	else:
+		labels = np.zeros((len(dataset), shape[0] * shape[1]), dtype=np.uint8)
+
+	for d in range(len(dataset)):
+		if is_convolutional:
+			labels[d] = compact_frame_to_convolutional_labels(dataset[d], shape)
+		else:
+			labels[d] = compact_frame_to_linear_labels(dataset[d])
+
+	return labels
+
+def train_model_from_file(filename, model, shape, convolutional_features=True, convolutional_labels=True):
 	dataset = [x for x in open(filename,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
 	print (len(dataset),'items loaded into dataset')
 
@@ -383,13 +460,10 @@ def train_model_from_file(filename, model, shape):
 
 		model.compile(loss='binary_crossentropy', optimizer=Adam(lr=lr/e), metrics=['accuracy'])
 
-		training_features = np.zeros((samples, shape[0], shape[1], CHANNELS),dtype=np.uint8)
-		training_labels = np.zeros((samples, shape[0], shape[1], 1),dtype=np.uint8)
-		for s in range(samples):
-			index = int(npr()*len(dataset))
-			features, labels = compact_features_to_features_and_labels(dataset[index], shape)
-			training_features[s] = features
-			training_labels[s] = labels
+		shuffle(dataset)
+		training_features = compact_frames_to_features(dataset[:samples], shape, convolutional_features)
+		training_labels = compact_frames_to_labels(dataset[:samples], shape, convolutional_labels)
+
 		model.fit(training_features, training_labels, epochs=1, verbose=1, validation_split=0.1)
 
 		save_model('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e),model)
@@ -713,9 +787,7 @@ class display( Frame ):
 		self.invent_canvas()
 
 if __name__ == '__main__':
-	if selection == GENERATE_DATASET:
-		generate_dataset( 2**22 )
-	elif selection == TRAIN_FROM_FILE:
+	if selection == TRAIN_FROM_FILE:
 		train_model_from_file(training_file, build_resnet(32, (3,3), 3), (GRID_R, GRID_C))
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
