@@ -496,13 +496,13 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 	validation_dataset = [x for x in open(validation_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
 	print (len(validation_dataset),'items loaded into validation dataset')
 
-	lr = 0.002
+	lr = 0.0002
+	model.compile(loss='binary_crossentropy', optimizer=Adam(lr=lr), metrics=['accuracy'])
+
 	training_samples = 100000
 	validation_samples = training_samples // 10
 	history = dict()
-	for e in range(1,1000):
-
-		model.compile(loss='binary_crossentropy', optimizer=Adam(lr=lr/e), metrics=['accuracy'])
+	for e in range(1,100):
 
 		shuffle(training_dataset)
 		training_features = compact_frames_to_features(training_dataset[:training_samples], shape, convolutional_features)
@@ -523,7 +523,7 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 		for key, values in history.items():
 			print (key + ' ' + ' '.join([str(x) for x in values]))
 
-		save_model('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e),model)
+		#save_model('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e),model)
 
 from tkinter import *
 
