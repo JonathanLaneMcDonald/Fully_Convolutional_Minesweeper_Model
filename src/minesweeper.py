@@ -13,10 +13,10 @@ from numpy.random import shuffle
 if __name__ == '__main__':
 	from keras.models import Sequential, model_from_json, Model
 	from keras.layers import Dense, Dropout, Activation, Flatten, Input
-	from keras.layers import Conv2D, MaxPooling2D, ZeroPadding2D
+	from keras.layers import Conv2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
 	from keras.optimizers import Adam, Adagrad, Adadelta
 	from keras.utils import to_categorical
-	from keras.layers.merge import add
+	from keras.layers.merge import add, Add
 	from keras.layers.normalization import BatchNormalization
 
 # **********************************************************************
@@ -108,28 +108,24 @@ Board Sizes:
 	hard			16x32 with 128 mines	25.00% mines
 """
 
-GRID_R = 32
-GRID_C = 32
+GRID_R = 16
+GRID_C = 16
 GRID_CELLS = GRID_R * GRID_C
 
-MIN_MINES = 128
+MIN_MINES = 40
 MAX_MINES = MIN_MINES
 
-selection = GENERATE_DATASET
 #selection = BUILD
 #selection = EXPLORE
 selection = PLAY
 #selection = EVALUATE
 #selection = RL
-#selection = TRAIN_FROM_FILE
-training_file = str(GRID_R)+'x'+str(GRID_C)+'x'+str(MIN_MINES)
+selection = TRAIN_FROM_FILE
+training_file = 'dataset_intermediate'
 trained_model = 'debug model (16, 30) 11'
 
 BASIC_SOLVER = False
 #BASIC_SOLVER = True
-
-TRAINING_QUOTA = 250000
-BATCH = 128
 
 
 
@@ -147,48 +143,90 @@ BATCH = 128
 # **********************neural network utils****************************
 # **********************************************************************
 
-def build_resnet(filters, kernels, blocks):
+def build_linear_model(layers):
 	
-	input 	= Input(shape=(GRID_R,GRID_C,CHANNELS))
+	input = Input(shape=(GRID_R*GRID_C*CHANNELS, ))
 
-	conv 	= Conv2D(filters=filters, kernel_size=kernels, strides=(1,1), padding="same")(input)
-	norm	= BatchNormalization(axis=3)(conv)
-	bk_input= Activation("relu")(norm)
-	
-	for block in range(blocks):
-		conv	= Conv2D(filters=filters, kernel_size=kernels, strides=(1,1), padding="same")(bk_input)
-		norm	= BatchNormalization(axis=3)(conv)
-		relu	= Activation("relu")(norm)
+	x = input
+	for _ in range(layers):
+		x = Dense(GRID_R*GRID_C, activation='relu')(x)
+		x = Dropout(0.5)(x)
 
-		conv	= Conv2D(filters=filters, kernel_size=kernels, strides=(1,1), padding="same")(relu)
-		norm	= BatchNormalization(axis=3)(conv)
-		skip	= add([norm, bk_input])
-		bk_input= Activation("relu")(skip)
-
-	conv	= Conv2D(filters=2, kernel_size=(1,1), strides=(1,1), padding="same")(bk_input)
-	norm	= BatchNormalization(axis=3)(conv)
-	relu	= Activation("relu")(norm)
-
-	output	= Conv2D(filters=1, kernel_size=(1,1), strides=(1,1), padding="same", activation="sigmoid")(relu)
+	output = Dense(GRID_R*GRID_C, activation='sigmoid')(x)
 
 	model = Model(inputs=input, outputs=output)
 	model.summary()
 	return model
 
-def compact_features_to_features_and_labels(string, shape):
-	rows, cols = shape
+def build_convnet_with_linear_outputs(filters, kernels, layers):
+	
+	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
 
-	features = np.zeros((rows, cols, CHANNELS), dtype=np.uint8)
-	labels = np.zeros((rows, cols, 1), dtype=np.uint8)
+	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(input)
+	x = BatchNormalization()(x)
+	x = Activation('relu')(x)
+	x = Dropout(0.2)(x)
 	
-	for r in range(rows):
-		for c in range(cols):
-			if string[r*cols + c].isdigit():
-				features[r][c][int(string[r*cols + c])] = 1
-			if string[r*cols + c] == 's':
-				labels[r][c][0] = 1
+	for _ in range(layers-1):
+		x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
+		x = BatchNormalization()(x)
+		x = Activation('relu')(x)
+		x = Dropout(0.2)(x)
+
+	x = AveragePooling2D((4,4))(x)
+
+	x = Flatten()(x)
+
+	output = Dense(GRID_R * GRID_C, activation='sigmoid')(x)
+
+	model = Model(inputs=input, outputs=output)
+	model.summary()
+	return model
+
+def build_convnet_with_convolutional_outputs(filters, kernels, layers):
 	
-	return features, labels
+	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
+
+	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(input)
+	x = BatchNormalization()(x)
+	x = Activation('relu')(x)
+	x = Dropout(0.2)(x)
+	
+	for _ in range(layers-1):
+		x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
+		x = BatchNormalization()(x)
+		x = Activation('relu')(x)
+		x = Dropout(0.2)(x)
+
+	output = Conv2D(filters=1, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
+
+	model = Model(inputs=input, outputs=output)
+	model.summary()
+	return model
+
+def build_resnet_with_ID(filters, kernels, blocks, dilations=[(1,1),(1,1)]):
+	
+	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
+
+	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(input)
+	x = BatchNormalization()(x)
+	x = Activation('relu')(x)
+	x = Dropout(0.2)(x)
+	
+	for _ in range(blocks):
+		y = x
+		for dilation in dilations:
+			y = Conv2D(filters=filters, kernel_size=kernels, padding='same', dilation_rate=dilation)(y)
+			y = BatchNormalization()(y)
+			y = Activation('relu')(y)
+			y = Dropout(0.2)(y)
+		x = Add()([x,y])
+
+	output = Conv2D(filters=1, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
+
+	model = Model(inputs=input, outputs=output)
+	model.summary()
+	return model
 
 def compact_frame_to_linear_features(string):
 
@@ -202,7 +240,7 @@ def compact_frame_to_linear_features(string):
 
 def compact_frame_to_linear_labels(string):
 
-	labels = np.zeros(len(string) * CHANNELS, dtype=np.uint8)
+	labels = np.zeros(len(string), dtype=np.uint8)
 	
 	for p in range(len(string)):
 		if string[p] == 's':
@@ -788,14 +826,16 @@ class display( Frame ):
 
 if __name__ == '__main__':
 	if selection == TRAIN_FROM_FILE:
-		train_model_from_file(training_file, build_resnet(32, (3,3), 3), (GRID_R, GRID_C))
+		#train_model_from_file(training_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(2,2),(4,4),(8,8)]), (GRID_R, GRID_C))
+		train_model_from_file(training_file, build_convnet_with_linear_outputs(32, (3,3), 12), (GRID_R, GRID_C), True, False)
+		#train_model_from_file(training_file, build_linear_model(3), (GRID_R, GRID_C), False, False)
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
 	elif selection == EVALUATE:
 		evaluate(1000, load_model(trained_model))
 	elif selection == EXPLORE:
-		exploratory_model_training(build_resnet(64, (3,3), 5))
+		exploratory_model_training(build_resnet_with_ID(64, (3,3), 5))
 	elif selection == PLAY:
 		display().mainloop()
 	elif selection == RL:
-		rl_training(build_resnet(64, (3,3), 5))
+		rl_training(build_resnet_with_ID(64, (3,3), 5))
