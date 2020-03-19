@@ -494,6 +494,7 @@ def train_model_from_file(filename, model, shape, convolutional_features=True, c
 
 	lr = 0.002
 	samples = 100000
+	history = dict()
 	for e in range(1,1000):
 
 		model.compile(loss='binary_crossentropy', optimizer=Adam(lr=lr/e), metrics=['accuracy'])
@@ -502,8 +503,16 @@ def train_model_from_file(filename, model, shape, convolutional_features=True, c
 		training_features = compact_frames_to_features(dataset[:samples], shape, convolutional_features)
 		training_labels = compact_frames_to_labels(dataset[:samples], shape, convolutional_labels)
 
-		history = model.fit(training_features, training_labels, epochs=1, verbose=1, validation_split=0.1)
-		print (history.history)
+		instance = model.fit(training_features, training_labels, epochs=1, verbose=1, validation_split=0.1)
+
+		for key, value in instance.history.items():
+			if key in history:
+				history[key] += value
+			else:
+				history[key] = value
+
+		for key, values in history.items():
+			print (key + ' ' + ' '.join([str(x) for x in values]))
 
 		save_model('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e),model)
 
@@ -828,8 +837,8 @@ class display( Frame ):
 if __name__ == '__main__':
 	if selection == TRAIN_FROM_FILE:
 		#train_model_from_file(training_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(2,2),(4,4),(8,8)]), (GRID_R, GRID_C))
-		#train_model_from_file(training_file, build_convnet_with_linear_outputs(32, (3,3), 12), (GRID_R, GRID_C), True, False)
-		train_model_from_file(training_file, build_linear_model(3), (GRID_R, GRID_C), False, False)
+		train_model_from_file(training_file, build_convnet_with_linear_outputs(32, (3,3), 12), (GRID_R, GRID_C), True, False)
+		#train_model_from_file(training_file, build_linear_model(3), (GRID_R, GRID_C), False, False)
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
 	elif selection == EVALUATE:
