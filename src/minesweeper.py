@@ -502,7 +502,7 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 	training_samples = 100000
 	validation_samples = training_samples // 10
 	history = dict()
-	for e in range(1,100):
+	for e in range(100):
 
 		shuffle(training_dataset)
 		training_features = compact_frames_to_features(training_dataset[:training_samples], shape, convolutional_features)
@@ -520,10 +520,10 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 			else:
 				history[key] = value
 
-		for key, values in history.items():
-			print (key + ' ' + ' '.join([str(x) for x in values]))
+	for key, values in history.items():
+		print (key + ' ' + ' '.join([str(x) for x in values]))
 
-		#save_model('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e),model)
+	#save_model('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e),model)
 
 from tkinter import *
 
@@ -845,9 +845,21 @@ class display( Frame ):
 
 if __name__ == '__main__':
 	if selection == TRAIN_FROM_FILE:
+		print ('linear to linear')
+		train_model_from_file(training_file, validation_file, build_linear_model(5), (GRID_R, GRID_C), False, False)
+
+		print ('convolutional to linear')
+		train_model_from_file(training_file, validation_file, build_convnet_with_linear_outputs(32, (3,3), 20), (GRID_R, GRID_C), True, False)
+
+		print ('convolutional to convolutional')
+		train_model_from_file(training_file, validation_file, build_convnet_with_convolutional_outputs(32, (3,3), 20), (GRID_R, GRID_C))
+
+		print ('c2c with residual connections')
+		train_model_from_file(training_file, validation_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(1,1),(1,1),(1,1)]), (GRID_R, GRID_C))
+
+		print ('c2c with residual connections and dilated convolutions')
 		train_model_from_file(training_file, validation_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(2,2),(4,4),(8,8)]), (GRID_R, GRID_C))
-		#train_model_from_file(training_file, build_convnet_with_linear_outputs(32, (3,3), 12), (GRID_R, GRID_C), True, False)
-		#train_model_from_file(training_file, build_linear_model(3), (GRID_R, GRID_C), False, False)
+
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
 	elif selection == EVALUATE:
