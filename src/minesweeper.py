@@ -121,7 +121,8 @@ selection = PLAY
 #selection = EVALUATE
 #selection = RL
 selection = TRAIN_FROM_FILE
-training_file = 'dataset_intermediate'
+training_file = 'dataset_intermediate_training'
+validation_file = 'dataset_intermediate_validation'
 trained_model = 'debug model (16, 30) 11'
 
 BASIC_SOLVER = False
@@ -488,22 +489,30 @@ def compact_frames_to_labels(dataset, shape, is_convolutional=True):
 
 	return labels
 
-def train_model_from_file(filename, model, shape, convolutional_features=True, convolutional_labels=True):
-	dataset = [x for x in open(filename,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
-	print (len(dataset),'items loaded into dataset')
+def train_model_from_file(training_datafile, validation_datafile, model, shape, convolutional_features=True, convolutional_labels=True):
+	training_dataset = [x for x in open(training_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
+	print (len(training_dataset),'items loaded into training dataset')
+
+	validation_dataset = [x for x in open(validation_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
+	print (len(validation_dataset),'items loaded into validation dataset')
 
 	lr = 0.002
-	samples = 100000
+	training_samples = 100000
+	validation_samples = training_samples // 10
 	history = dict()
 	for e in range(1,1000):
 
 		model.compile(loss='binary_crossentropy', optimizer=Adam(lr=lr/e), metrics=['accuracy'])
 
-		shuffle(dataset)
-		training_features = compact_frames_to_features(dataset[:samples], shape, convolutional_features)
-		training_labels = compact_frames_to_labels(dataset[:samples], shape, convolutional_labels)
+		shuffle(training_dataset)
+		training_features = compact_frames_to_features(training_dataset[:training_samples], shape, convolutional_features)
+		training_labels = compact_frames_to_labels(training_dataset[:training_samples], shape, convolutional_labels)
 
-		instance = model.fit(training_features, training_labels, epochs=1, verbose=1, validation_split=0.1)
+		shuffle(validation_dataset)
+		validation_features = compact_frames_to_features(validation_dataset[:validation_samples], shape, convolutional_features)
+		validation_labels = compact_frames_to_labels(validation_dataset[:validation_samples], shape, convolutional_labels)
+
+		instance = model.fit(training_features, training_labels, epochs=1, verbose=1, validation_data=(validation_features, validation_labels))
 
 		for key, value in instance.history.items():
 			if key in history:
@@ -836,8 +845,8 @@ class display( Frame ):
 
 if __name__ == '__main__':
 	if selection == TRAIN_FROM_FILE:
-		#train_model_from_file(training_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(2,2),(4,4),(8,8)]), (GRID_R, GRID_C))
-		train_model_from_file(training_file, build_convnet_with_linear_outputs(32, (3,3), 12), (GRID_R, GRID_C), True, False)
+		train_model_from_file(training_file, validation_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(2,2),(4,4),(8,8)]), (GRID_R, GRID_C))
+		#train_model_from_file(training_file, build_convnet_with_linear_outputs(32, (3,3), 12), (GRID_R, GRID_C), True, False)
 		#train_model_from_file(training_file, build_linear_model(3), (GRID_R, GRID_C), False, False)
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
