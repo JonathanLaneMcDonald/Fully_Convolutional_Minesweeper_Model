@@ -316,7 +316,7 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 
 if __name__ == '__main__':
 	if selection == TRAIN_FROM_FILE:
-		train_model_from_file(training_file, validation_file, build_2d_model(32, (3,3), 10), (GRID_R, GRID_C))
+		train_model_from_file(training_file, validation_file, build_2d_model(32, (3,3), 20), (GRID_R, GRID_C))
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
 	elif selection == EVALUATE:
