@@ -17,6 +17,8 @@ class Minesweeper():
 		self.rows = rows
 		self.cols = cols
 
+		self.generous_first_moves = []
+
 		self.mine_field = self.initialize_mine_field( number_of_mines )
 		self.proximity_field = self.initialize_proximity_field( self.mine_field )
 		self.visible_cells = self.initialize_visible_cells( self.mine_field )
@@ -105,6 +107,9 @@ class Minesweeper():
 	def get_border_field(self):
 		return self.border_cells
 
+	def get_generous_first_moves(self):
+		return self.generous_first_moves
+
 	def point_is_on_board(self, r, c):
 		if r >= 0 and r < self.rows and c >= 0 and c < self.cols:
 			return True
@@ -140,6 +145,8 @@ class Minesweeper():
 	def initialize_proximity_field(self, minefield):
 		new_field = self.generate_fresh_field(minefield.size, minefield.shape)
 
+		self.generous_first_moves = []
+
 		# visit each cell
 		for R in range(self.rows):
 			for C in range(self.cols):
@@ -151,6 +158,9 @@ class Minesweeper():
 							if minefield[r][c]:
 								mines += 1
 				new_field[R][C] = mines
+
+				if mines == 0:
+					self.generous_first_moves.append((R,C))
 
 		return new_field
 	

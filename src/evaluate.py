@@ -110,7 +110,11 @@ def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=Fals
 						likelihood *= len(safe_moves) / len(possible_moves)
 					game.visit_cell(selected_move)
 				else:
-					game.visit_cell(safe_moves[int(npr()*len(safe_moves))])
+					generous_first_moves = game.get_generous_first_moves()
+					if len(generous_first_moves):
+						game.visit_cell(generous_first_moves[int(npr()*len(generous_first_moves))])
+					else:
+						game.visit_cell(safe_moves[int(npr()*len(safe_moves))])
 			else:
 				game.forfeit_game()# because we're surrounded by mines ;(
 
