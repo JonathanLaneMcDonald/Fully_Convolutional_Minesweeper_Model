@@ -245,7 +245,7 @@ class display( Frame ):
 		self.canvas.grid(row=0,column=0)
 
 		self.game = Minesweeper(self.rows, self.cols, self.mines)
-		self.model = load_model('debug model 16x30x99 0')
+		self.model = load_model('debug model 16x16x40 1')
 		self.use_model = 0
 
 		self.row = 0

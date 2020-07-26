@@ -123,4 +123,5 @@ def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=Fals
 
 	return float(deaths)/moves_played, float(games_won)/games_played, float(moves_played)/games_played, float(global_likelihood)/games_played
 
-evaluate(10000, load_model('debug model 16x30x99 0'))
+if __name__ == "__main__":
+	evaluate(10000, load_model('debug model 16x16x40 1'))
