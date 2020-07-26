@@ -11,9 +11,9 @@ from numpy.random import random as npr
 from numpy.random import shuffle
 
 if __name__ == '__main__':
-	from keras.models import Sequential, model_from_json, Model
-	from keras.layers import Dense, Dropout, Activation, Flatten, Input
-	from keras.layers import Conv2D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
+	from keras.models import Sequential, Model, load_model
+	from keras.layers import Dense, Dropout, Activation, Flatten, Input, Reshape
+	from keras.layers import Conv2D, Conv3D, MaxPooling2D, ZeroPadding2D, AveragePooling2D
 	from keras.optimizers import Adam, Adagrad, Adadelta
 	from keras.utils import to_categorical
 	from keras.layers.merge import add, Add
@@ -24,39 +24,6 @@ if __name__ == '__main__':
 # **********************************************************************
 
 from keras.models import model_from_json
-
-def load_model(fname):
-	if fname == None:
-		return None
-
-	model = model_from_json(open(fname,'r').read())
-	model.load_weights(fname+' weights')
-	return model
-
-def save_model(filename_base, model):
-	open(filename_base,'w').write(model.to_json())
-	model.save_weights(filename_base + ' weights')
-
-def randomize(array):
-	for i in range(len(array)):
-		j = int(npr()*len(array))
-		while j == i:
-			j = int(npr()*len(array))
-		
-		temp = array[i]
-		array[i] = array[j]
-		array[j] = temp
-	return array
-		
-def these_fields_are_the_same(field_a, field_b, shape):
-	the_same = True
-	rows = shape[0]
-	cols = shape[1]
-	for r in range(rows):
-		for c in range(cols):
-			if field_a[r][c] != field_b[r][c]:
-				the_same = False
-	return the_same
 
 def build_difficulty_stats(R, C, G):
 	for m in range(MIN_MINES,MAX_MINES+1):
@@ -109,10 +76,10 @@ Board Sizes:
 """
 
 GRID_R = 16
-GRID_C = 16
+GRID_C = 30
 GRID_CELLS = GRID_R * GRID_C
 
-MIN_MINES = 40
+MIN_MINES = 99
 MAX_MINES = MIN_MINES
 
 #selection = BUILD
@@ -120,10 +87,9 @@ MAX_MINES = MIN_MINES
 selection = PLAY
 #selection = EVALUATE
 #selection = RL
-selection = TRAIN_FROM_FILE
-training_file = 'dataset_intermediate_training'
-validation_file = 'dataset_intermediate_validation'
-trained_model = 'debug model (16, 30) 11'
+#selection = TRAIN_FROM_FILE
+training_file = 'training'
+validation_file = 'validation'
 
 BASIC_SOLVER = False
 #BASIC_SOLVER = True
@@ -194,10 +160,11 @@ def build_convnet_with_convolutional_outputs(filters, kernels, layers):
 	x = Dropout(0.2)(x)
 	
 	for _ in range(layers-1):
-		x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
-		x = BatchNormalization()(x)
-		x = Activation('relu')(x)
-		x = Dropout(0.2)(x)
+		y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
+		y = BatchNormalization()(y)
+		y = Activation('relu')(y)
+		y = Dropout(0.2)(y)
+		x = Add()([x,y])
 
 	output = Conv2D(filters=1, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
 
@@ -205,24 +172,26 @@ def build_convnet_with_convolutional_outputs(filters, kernels, layers):
 	model.summary()
 	return model
 
-def build_resnet_with_ID(filters, kernels, blocks, dilations=[(1,1),(1,1)]):
+def build_3D_convnet_with_convolutional_outputs(filters, kernels, layers):
 	
 	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
 
-	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(input)
+	x = Reshape((GRID_R,GRID_C,CHANNELS,1))(input)
+
+	x = Conv3D(filters=filters, kernel_size=kernels, padding='same')(x)
 	x = BatchNormalization()(x)
 	x = Activation('relu')(x)
 	x = Dropout(0.2)(x)
-	
-	for _ in range(blocks):
-		y = x
-		for dilation in dilations:
-			y = Conv2D(filters=filters, kernel_size=kernels, padding='same', dilation_rate=dilation)(y)
-			y = BatchNormalization()(y)
-			y = Activation('relu')(y)
-			y = Dropout(0.2)(y)
+
+	for _ in range(layers-1):
+		y = Conv3D(filters=filters, kernel_size=kernels, padding='same')(x)
+		y = BatchNormalization()(y)
+		y = Activation('relu')(y)
+		y = Dropout(0.2)(y)
 		x = Add()([x,y])
 
+	x = Conv3D(filters=1, kernel_size=kernels, padding='same')(x)
+	x = Reshape((GRID_R,GRID_C,CHANNELS))(x)
 	output = Conv2D(filters=1, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
 
 	model = Model(inputs=input, outputs=output)
@@ -343,73 +312,6 @@ def select_top_moves(game, model, moves_requested):
 # ***********************simple logic functions*************************
 # **********************************************************************
 
-def plant_island_flags(game):
-	shape = game.get_field_shape()
-	rows = shape[0]
-	cols = shape[1]
-
-	vis_map = game.get_visible_field()
-	pro_map = game.get_proximity_field()
-	
-	flags = []
-	for R in range(rows):
-		for C in range(cols):
-			if pro_map[R][C] and vis_map[R][C]:
-				neighbors = []
-				for r in range(R-1, R+2):
-					for c in range(C-1, C+2):
-						if game.point_is_on_board(r,c):
-							if vis_map[r][c] == 0:
-								neighbors.append((r,c))
-				if len(neighbors) == pro_map[R][C]:
-					for cell in neighbors:
-						game.place_flag(cell)
-	return game
-
-def visit_reasonable_cells(game):
-	shape = game.get_field_shape()
-	rows = shape[0]
-	cols = shape[1]
-
-	game = plant_island_flags(game)
-
-	vis_map = game.get_visible_field()
-	pro_map = game.get_proximity_field()
-	flg_map = game.get_flagged_field()
-	
-	for R in range(rows):
-		for C in range(cols):
-			if pro_map[R][C] and vis_map[R][C]:
-				flagged_neighbors = []
-				for r in range(R-1, R+2):
-					for c in range(C-1, C+2):
-						if game.point_is_on_board(r,c):
-							if flg_map[r][c]:
-								flagged_neighbors.append((r,c))
-				if len(flagged_neighbors) == pro_map[R][C]:
-					for r in range(R-1, R+2):
-						for c in range(C-1, C+2):
-							if game.point_is_on_board(r,c):
-								if flg_map[r][c] == 0 and vis_map[r][c] == 0:
-									game.visit_cell((r,c))
-	return game
-
-def make_logical_inferences(game):
-	old_visi_field = game.get_visible_field()
-	old_flag_field = game.get_flagged_field()
-	game = visit_reasonable_cells(game)
-	game = visit_reasonable_cells(game)
-	new_visi_field = game.get_visible_field()
-	new_flag_field = game.get_flagged_field()
-	while not these_fields_are_the_same(old_visi_field, new_visi_field, game.get_field_shape()) and not these_fields_are_the_same(old_flag_field, new_flag_field, game.get_field_shape()):
-		old_visi_field = game.get_visible_field()
-		old_flag_field = game.get_flagged_field()
-		game = visit_reasonable_cells(game)
-		game = visit_reasonable_cells(game)
-		new_visi_field = game.get_visible_field()
-		new_flag_field = game.get_flagged_field()
-	return game
-
 def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=False):
 	deaths = 0
 	moves_played = 0
@@ -446,16 +348,10 @@ def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=Fals
 		if not to_smitherines:
 			games_won += 1
 
-		if games_played % 10 == 0:
+		if games_played % 1 == 0:
 			print (games_played, float(deaths)/moves_played, float(games_won)/games_played, float(moves_played)/games_played, float(global_likelihood)/games_played)
 
 	return float(deaths)/moves_played, float(games_won)/games_played, float(moves_played)/games_played, float(global_likelihood)/games_played
-
-def exploratory_model_training(model):
-	pass
-
-def rl_training(model):
-	pass
 
 def compact_frames_to_features(dataset, shape, is_convolutional=True):
 	features = None
@@ -496,13 +392,13 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 	validation_dataset = [x for x in open(validation_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
 	print (len(validation_dataset),'items loaded into validation dataset')
 
-	lr = 0.0002
-	model.compile(loss='binary_crossentropy', optimizer=Adam(lr=lr), metrics=['accuracy'])
+	model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.002), metrics=['accuracy'])
 
-	training_samples = 100000
+	batch_size = 32
+	training_samples = 10000 * batch_size
 	validation_samples = training_samples // 10
 	history = dict()
-	for e in range(100):
+	for e in range(1000):
 
 		shuffle(training_dataset)
 		training_features = compact_frames_to_features(training_dataset[:training_samples], shape, convolutional_features)
@@ -512,7 +408,7 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 		validation_features = compact_frames_to_features(validation_dataset[:validation_samples], shape, convolutional_features)
 		validation_labels = compact_frames_to_labels(validation_dataset[:validation_samples], shape, convolutional_labels)
 
-		instance = model.fit(training_features, training_labels, epochs=1, verbose=1, validation_data=(validation_features, validation_labels))
+		instance = model.fit(training_features, training_labels, batch_size=batch_size, epochs=1, verbose=1, validation_data=(validation_features, validation_labels))
 
 		for key, value in instance.history.items():
 			if key in history:
@@ -520,10 +416,10 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 			else:
 				history[key] = value
 
-	for key, values in history.items():
-		print (key + ' ' + ' '.join([str(x) for x in values]))
+		for key, values in history.items():
+			print (key + ' ' + ' '.join([str(x) for x in values]))
 
-	#save_model('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e),model)
+		model.save('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e))
 
 from tkinter import *
 
@@ -539,9 +435,8 @@ class display( Frame ):
 		self.canvas.delete('all')
 		
 		prediction = None
-		if len(self.model):
-			if self.model_selection < len(self.model):
-				prediction = generate_heat_map(self.game, self.model[self.model_selection][0])
+		if self.model != None and self.use_model:
+			prediction = generate_heat_map(self.game, self.model)
 
 		mine_field = self.game.get_mine_field()
 		flag_field = self.game.get_flagged_field()
@@ -658,29 +553,6 @@ class display( Frame ):
 		self.canvas.update_idletasks()
 		#time.sleep(0.2)
 
-	def load_models(self):
-		files = os.listdir('./')
-		files.sort()
-		
-		model_pairs = []
-		for i in files:
-			if i.find('model') != -1:
-				if os.path.exists(i+' weights'):
-					model_pairs.append((i,i+' weights'))
-		model_pairs.sort()
-		
-		self.model = []
-		self.model_selection = 0
-
-		for i in model_pairs:
-			new_model = model_from_json(open(i[0],'r').read())
-			new_model.load_weights(i[1])
-			self.model.append((new_model,i[0]))
-			print ('Model loaded',i[0],i[1])
-		print (len(self.model),'models loaded')
-
-		self.model_selection = len(self.model) - 1
-
 	def nnsolver(self):
 		smitherines = False
 		while not smitherines:
@@ -689,7 +561,7 @@ class display( Frame ):
 
 				if len(safe_moves):
 					if self.game.first_move_has_been_made():
-						selected_move = select_top_moves(self.game, self.model[self.model_selection][0], 1)[0]
+						selected_move = select_top_moves(self.game, self.model, 1)[0]
 						if self.game.this_cell_is_mined(selected_move):
 							smitherines = True
 							self.game.forfeit_game()
@@ -736,29 +608,14 @@ class display( Frame ):
 		if self.rows < 1:					self.rows = 1
 		if event.char == 'w' or event.char == 's':	print ('Rows adjusted to:',self.rows)
 
-		if event.char == '-':							self.model_selection -= 1
-		if event.char == '+':							self.model_selection += 1
-		if self.model_selection < 0:					self.model_selection = 0
-		if self.model_selection >= len(self.model):		self.model_selection = len(self.model)-1
-		if event.char == '-' or event.char == '+':	print ('Model Selection:',self.model[self.model_selection][1])
+		if event.char == 'i':				self.use_model ^= 1
 
 		if event.keysym == 'g':
-			# if you have models loaded, you'll break everything if you don't reset the board size
-			if len(self.model):
-				self.mines = MIN_MINES
-				self.rows = GRID_R
-				self.cols = GRID_C
+			self.mines = MIN_MINES
+			self.rows = GRID_R
+			self.cols = GRID_C
 
 			self.game = Minesweeper(self.rows, self.cols, self.mines)
-
-		if event.keysym == 'l':
-			self.load_models()
-
-		if event.keysym == 'L':
-			self.load_ensemble()
-
-		if event.keysym == 'E':
-			self.test_ensemble()
 
 		if event.keysym == 'm':
 			self.showing_mines ^= 1
@@ -771,19 +628,12 @@ class display( Frame ):
 			if event.keysym == 'r':
 				self.game.reset()
 
-			if event.keysym == 'h':
-				self.game = visit_reasonable_cells(self.game)
-
-			if event.keysym == 'H':
-				self.game = make_logical_inferences(self.game)
-
 			if event.keysym == 'space':
 				if self.game.is_visible((self.row, self.col)):
 					self.game.set_invisible((self.row, self.col))
 				else:
 					message = 'game.visit_cell('+str(self.row)+','+str(self.col)+')'
 					self.game.visit_cell((self.row, self.col))
-					#self.game = make_logical_inferences(self.game)
 
 			if event.keysym == 'f':
 				if self.game.get_flagged_field()[self.row][self.col]:
@@ -834,9 +684,8 @@ class display( Frame ):
 		self.cols = GRID_C
 		
 		self.game = Minesweeper(self.rows, self.cols, self.mines)
-		self.model = []
-		self.model_selection = 0
-		self.ensemble = [] # (model, weight)
+		self.model = load_model('debug model 16x30x99 3 - 3d model')
+		self.use_model = 0
 
 		self.row = 0
 		self.col = 0
@@ -845,6 +694,10 @@ class display( Frame ):
 
 if __name__ == '__main__':
 	if selection == TRAIN_FROM_FILE:
+		#train_model_from_file(training_file, validation_file, build_convnet_with_convolutional_outputs(32, (3,3), 20), (GRID_R, GRID_C))
+		train_model_from_file(training_file, validation_file, build_3D_convnet_with_convolutional_outputs(32, (3,3,3), 20), (GRID_R, GRID_C))
+
+		'''
 		print ('linear to linear')
 		train_model_from_file(training_file, validation_file, build_linear_model(5), (GRID_R, GRID_C), False, False)
 
@@ -859,14 +712,11 @@ if __name__ == '__main__':
 
 		print ('c2c with residual connections and dilated convolutions')
 		train_model_from_file(training_file, validation_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(2,2),(4,4),(8,8)]), (GRID_R, GRID_C))
+		'''
 
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
 	elif selection == EVALUATE:
-		evaluate(1000, load_model(trained_model))
-	elif selection == EXPLORE:
-		exploratory_model_training(build_resnet_with_ID(64, (3,3), 5))
+		evaluate(1000, load_model('debug model 16x30x99 3 - 3d model'))
 	elif selection == PLAY:
 		display().mainloop()
-	elif selection == RL:
-		rl_training(build_resnet_with_ID(64, (3,3), 5))
