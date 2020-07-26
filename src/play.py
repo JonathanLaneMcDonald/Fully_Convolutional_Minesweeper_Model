@@ -1,17 +1,9 @@
 
+from common import *
 from MinesweeperClass import *
 
 import numpy as np
 from keras.models import load_model
-
-CHANNELS = 10
-
-GRID_R = 16
-GRID_C = 30
-GRID_CELLS = GRID_R * GRID_C
-
-MIN_MINES = 99
-MAX_MINES = MIN_MINES
 
 def board_to_features(game):
 	rows = game.rows

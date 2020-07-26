@@ -5,6 +5,7 @@ import numpy as np
 from math import log
 
 from copy import copy
+from common import *
 from MinesweeperClass import *
 
 from numpy.random import random as npr
@@ -19,87 +20,8 @@ if __name__ == '__main__':
 	from keras.layers.merge import add, Add
 	from keras.layers.normalization import BatchNormalization
 
-# **********************************************************************
-# *****************************evaluation*******************************
-# **********************************************************************
-
-def build_difficulty_stats(R, C, G):
-	for m in range(MIN_MINES,MAX_MINES+1):
-		wins = 0
-		losses = 0
-		for i in range(G):
-			game = Minesweeper( R, C, m )
-
-			while game.get_game_status() == game.INPROGRESS:
-				unvisited_cells = game.get_moves()
-				selection = int(npr()*len(unvisited_cells))
-				
-				r = unvisited_cells[selection][0]
-				c = unvisited_cells[selection][1]
-
-				game.visit_cell((r,c))
-
-			if game.get_game_status() == game.VICTORY:
-				wins += 1
-			elif game.get_game_status() == game.DEFEAT:
-				losses += 1
-			
-		print (m,'mines',wins,'wins',losses,'losses')
-
-
-# **********************************************************************
-# *************************constants************************************
-# **********************************************************************
-
-GENERATE_DATASET = 0
-BUILD = 1
-EXPLORE = 2
-PLAY = 3
-EVALUATE = 4
-RL = 5
-TRAIN_FROM_FILE = 6
-
-# 9 channels for the proximity map, 1 for the visibility map
-CHANNELS = 10
-
-"""
-Board Sizes:
-	beginner 		8x8 with 10 mines		15.625% mines
-	intermediate	16x16 with 40 mines		15.625% mines
-	expert			16x30 with 99 mines		~20% mines
-	
-	easy			16x32 with 64 mines		12.50% mines
-	medium			16x32 with 96 mines		18.75% mines
-	hard			16x32 with 128 mines	25.00% mines
-"""
-
-GRID_R = 16
-GRID_C = 30
-GRID_CELLS = GRID_R * GRID_C
-
-MIN_MINES = 99
-MAX_MINES = MIN_MINES
-
-#selection = BUILD
-#selection = EXPLORE
-#selection = PLAY
-#selection = EVALUATE
-#selection = RL
-selection = TRAIN_FROM_FILE
 training_file = 'training'
 validation_file = 'validation'
-
-
-
-
-
-
-
-
-
-
-
-
 
 # **********************************************************************
 # **********************neural network utils****************************
@@ -127,30 +49,6 @@ def build_2d_model(filters, kernels, layers):
 	model.summary()
 	return model
 
-def compact_frame_to_convolutional_features(string, shape):
-	rows, cols = shape
-
-	features = np.zeros((rows, cols, CHANNELS), dtype=np.uint8)
-	
-	for r in range(rows):
-		for c in range(cols):
-			if string[r*cols + c].isdigit():
-				features[r][c][int(string[r*cols + c])] = 1
-	
-	return features
-
-def compact_frame_to_convolutional_labels(string, shape):
-	rows, cols = shape
-
-	labels = np.zeros((rows, cols, 1), dtype=np.uint8)
-	
-	for r in range(rows):
-		for c in range(cols):
-			if string[r*cols + c] == 's':
-				labels[r][c][0] = 1
-	
-	return labels
-
 def board_to_features(game):
 	rows = game.rows
 	cols = game.cols
@@ -167,20 +65,6 @@ def board_to_features(game):
 				new_array[r][c][proximal[r][c]] = 1
 
 	return new_array
-
-def prepare_training_labels(model, training_features, unfinished_labels):
-	# first, let's see what the network currently thinks about this board position
-	training_labels = model.predict(training_features, verbose=1)
-
-	# now let's give it a nudge by encouraging or discouraging this particular behavior
-	for i in range(len(unfinished_labels)):
-		index = abs(unfinished_labels[i])-1
-		if unfinished_labels[i] < 0:
-			training_labels[i][index] = -1
-		else:
-			training_labels[i][index] = 1
-
-	return training_labels
 
 def generate_heat_map(game, model):
 	input_features = np.array(board_to_features(game), dtype=np.intc).reshape(1, GRID_R, GRID_C, CHANNELS)
@@ -262,21 +146,39 @@ def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=Fals
 
 	return float(deaths)/moves_played, float(games_won)/games_played, float(moves_played)/games_played, float(global_likelihood)/games_played
 
-def compact_frames_to_features(dataset, shape):
-	features = np.zeros((len(dataset), shape[0], shape[1], CHANNELS), dtype=np.uint8)
+def compact_frame_to_convolutional_features(string, shape):
+	rows, cols = shape
 
-	for d in range(len(dataset)):
-		features[d] = compact_frame_to_convolutional_features(dataset[d], shape)
-
+	features = np.zeros((rows, cols, CHANNELS), dtype=np.uint8)
+	
+	for r in range(rows):
+		for c in range(cols):
+			if string[r*cols + c].isdigit():
+				features[r][c][int(string[r*cols + c])] = 1
+	
 	return features
 
-def compact_frames_to_labels(dataset, shape):
+def compact_frame_to_convolutional_labels(string, shape):
+	rows, cols = shape
+
+	labels = np.zeros((rows, cols, 1), dtype=np.uint8)
+	
+	for r in range(rows):
+		for c in range(cols):
+			if string[r*cols + c] == 's':
+				labels[r][c][0] = 1
+	
+	return labels
+
+def frames_to_dataset(dataset, shape):
+	features = np.zeros((len(dataset), shape[0], shape[1], CHANNELS), dtype=np.uint8)
 	labels = np.zeros((len(dataset), shape[0], shape[1], 1), dtype=np.uint8)
 
 	for d in range(len(dataset)):
+		features[d] = compact_frame_to_convolutional_features(dataset[d], shape)
 		labels[d] = compact_frame_to_convolutional_labels(dataset[d], shape)
 
-	return labels
+	return features, labels
 
 def train_model_from_file(training_datafile, validation_datafile, model, shape):
 	training_dataset = [x for x in open(training_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
@@ -294,12 +196,10 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 	for e in range(1000):
 
 		shuffle(training_dataset)
-		training_features = compact_frames_to_features(training_dataset[:training_samples], shape)
-		training_labels = compact_frames_to_labels(training_dataset[:training_samples], shape)
-
 		shuffle(validation_dataset)
-		validation_features = compact_frames_to_features(validation_dataset[:validation_samples], shape)
-		validation_labels = compact_frames_to_labels(validation_dataset[:validation_samples], shape)
+
+		training_features, training_labels = frames_to_dataset(training_dataset[:training_samples], shape)
+		validation_features, validation_labels = frames_to_dataset(validation_dataset[:validation_samples], shape)
 
 		instance = model.fit(training_features, training_labels, batch_size=batch_size, epochs=1, verbose=1, validation_data=(validation_features, validation_labels))
 
@@ -314,10 +214,4 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 
 		model.save('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e))
 
-if __name__ == '__main__':
-	if selection == TRAIN_FROM_FILE:
-		train_model_from_file(training_file, validation_file, build_2d_model(32, (3,3), 20), (GRID_R, GRID_C))
-	elif selection == BUILD:
-		build_difficulty_stats( GRID_R, GRID_C, 10000 )
-	elif selection == EVALUATE:
-		evaluate(1000, load_model('debug model 16x30x99 3 - 3d model'))
+train_model_from_file(training_file, validation_file, build_2d_model(32, (3,3), 20), (GRID_R, GRID_C))
