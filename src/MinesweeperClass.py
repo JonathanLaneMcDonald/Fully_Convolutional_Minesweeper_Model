@@ -1,14 +1,8 @@
 
 import os
 
-def npr():
-	num = 0
-	for i in range(4):
-		num <<= 8
-		num += ord(os.urandom(1))
-	return float(num) / 2**32
-
 import numpy as np
+from numpy.random import random as npr
 
 class Minesweeper():
 
