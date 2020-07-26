@@ -20,10 +20,8 @@ if __name__ == '__main__':
 	from keras.layers.normalization import BatchNormalization
 
 # **********************************************************************
-# *********************general utils************************************
+# *****************************evaluation*******************************
 # **********************************************************************
-
-from keras.models import model_from_json
 
 def build_difficulty_stats(R, C, G):
 	for m in range(MIN_MINES,MAX_MINES+1):
@@ -84,15 +82,12 @@ MAX_MINES = MIN_MINES
 
 #selection = BUILD
 #selection = EXPLORE
-selection = PLAY
+#selection = PLAY
 #selection = EVALUATE
 #selection = RL
-#selection = TRAIN_FROM_FILE
+selection = TRAIN_FROM_FILE
 training_file = 'training'
 validation_file = 'validation'
-
-BASIC_SOLVER = False
-#BASIC_SOLVER = True
 
 
 
@@ -110,47 +105,7 @@ BASIC_SOLVER = False
 # **********************neural network utils****************************
 # **********************************************************************
 
-def build_linear_model(layers):
-	
-	input = Input(shape=(GRID_R*GRID_C*CHANNELS, ))
-
-	x = input
-	for _ in range(layers):
-		x = Dense(GRID_R*GRID_C, activation='relu')(x)
-		x = Dropout(0.5)(x)
-
-	output = Dense(GRID_R*GRID_C, activation='sigmoid')(x)
-
-	model = Model(inputs=input, outputs=output)
-	model.summary()
-	return model
-
-def build_convnet_with_linear_outputs(filters, kernels, layers):
-	
-	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
-
-	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(input)
-	x = BatchNormalization()(x)
-	x = Activation('relu')(x)
-	x = Dropout(0.2)(x)
-	
-	for _ in range(layers-1):
-		x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
-		x = BatchNormalization()(x)
-		x = Activation('relu')(x)
-		x = Dropout(0.2)(x)
-
-	x = AveragePooling2D((4,4))(x)
-
-	x = Flatten()(x)
-
-	output = Dense(GRID_R * GRID_C, activation='sigmoid')(x)
-
-	model = Model(inputs=input, outputs=output)
-	model.summary()
-	return model
-
-def build_convnet_with_convolutional_outputs(filters, kernels, layers):
+def build_2d_model(filters, kernels, layers):
 	
 	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
 
@@ -171,52 +126,6 @@ def build_convnet_with_convolutional_outputs(filters, kernels, layers):
 	model = Model(inputs=input, outputs=output)
 	model.summary()
 	return model
-
-def build_3D_convnet_with_convolutional_outputs(filters, kernels, layers):
-	
-	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
-
-	x = Reshape((GRID_R,GRID_C,CHANNELS,1))(input)
-
-	x = Conv3D(filters=filters, kernel_size=kernels, padding='same')(x)
-	x = BatchNormalization()(x)
-	x = Activation('relu')(x)
-	x = Dropout(0.2)(x)
-
-	for _ in range(layers-1):
-		y = Conv3D(filters=filters, kernel_size=kernels, padding='same')(x)
-		y = BatchNormalization()(y)
-		y = Activation('relu')(y)
-		y = Dropout(0.2)(y)
-		x = Add()([x,y])
-
-	x = Conv3D(filters=1, kernel_size=kernels, padding='same')(x)
-	x = Reshape((GRID_R,GRID_C,CHANNELS))(x)
-	output = Conv2D(filters=1, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
-
-	model = Model(inputs=input, outputs=output)
-	model.summary()
-	return model
-
-def compact_frame_to_linear_features(string):
-
-	features = np.zeros(len(string) * CHANNELS, dtype=np.uint8)
-	
-	for p in range(len(string)):
-		if string[p].isdigit():
-			features[p*CHANNELS + int(string[p])] = 1
-
-	return features
-
-def compact_frame_to_linear_labels(string):
-
-	labels = np.zeros(len(string), dtype=np.uint8)
-	
-	for p in range(len(string)):
-		if string[p] == 's':
-			labels[p] = 1
-
-	return labels
 
 def compact_frame_to_convolutional_features(string, shape):
 	rows, cols = shape
@@ -353,39 +262,23 @@ def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=Fals
 
 	return float(deaths)/moves_played, float(games_won)/games_played, float(moves_played)/games_played, float(global_likelihood)/games_played
 
-def compact_frames_to_features(dataset, shape, is_convolutional=True):
-	features = None
-
-	if is_convolutional:
-		features = np.zeros((len(dataset), shape[0], shape[1], CHANNELS), dtype=np.uint8)
-	else:
-		features = np.zeros((len(dataset), shape[0] * shape[1] * CHANNELS), dtype=np.uint8)
+def compact_frames_to_features(dataset, shape):
+	features = np.zeros((len(dataset), shape[0], shape[1], CHANNELS), dtype=np.uint8)
 
 	for d in range(len(dataset)):
-		if is_convolutional:
-			features[d] = compact_frame_to_convolutional_features(dataset[d], shape)
-		else:
-			features[d] = compact_frame_to_linear_features(dataset[d])
+		features[d] = compact_frame_to_convolutional_features(dataset[d], shape)
 
 	return features
 
-def compact_frames_to_labels(dataset, shape, is_convolutional=True):
-	labels = None
-
-	if is_convolutional:
-		labels = np.zeros((len(dataset), shape[0], shape[1], 1), dtype=np.uint8)
-	else:
-		labels = np.zeros((len(dataset), shape[0] * shape[1]), dtype=np.uint8)
+def compact_frames_to_labels(dataset, shape):
+	labels = np.zeros((len(dataset), shape[0], shape[1], 1), dtype=np.uint8)
 
 	for d in range(len(dataset)):
-		if is_convolutional:
-			labels[d] = compact_frame_to_convolutional_labels(dataset[d], shape)
-		else:
-			labels[d] = compact_frame_to_linear_labels(dataset[d])
+		labels[d] = compact_frame_to_convolutional_labels(dataset[d], shape)
 
 	return labels
 
-def train_model_from_file(training_datafile, validation_datafile, model, shape, convolutional_features=True, convolutional_labels=True):
+def train_model_from_file(training_datafile, validation_datafile, model, shape):
 	training_dataset = [x for x in open(training_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
 	print (len(training_dataset),'items loaded into training dataset')
 
@@ -401,12 +294,12 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 	for e in range(1000):
 
 		shuffle(training_dataset)
-		training_features = compact_frames_to_features(training_dataset[:training_samples], shape, convolutional_features)
-		training_labels = compact_frames_to_labels(training_dataset[:training_samples], shape, convolutional_labels)
+		training_features = compact_frames_to_features(training_dataset[:training_samples], shape)
+		training_labels = compact_frames_to_labels(training_dataset[:training_samples], shape)
 
 		shuffle(validation_dataset)
-		validation_features = compact_frames_to_features(validation_dataset[:validation_samples], shape, convolutional_features)
-		validation_labels = compact_frames_to_labels(validation_dataset[:validation_samples], shape, convolutional_labels)
+		validation_features = compact_frames_to_features(validation_dataset[:validation_samples], shape)
+		validation_labels = compact_frames_to_labels(validation_dataset[:validation_samples], shape)
 
 		instance = model.fit(training_features, training_labels, batch_size=batch_size, epochs=1, verbose=1, validation_data=(validation_features, validation_labels))
 
@@ -421,302 +314,10 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape, 
 
 		model.save('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e))
 
-from tkinter import *
-
-SQ = 24
-
-h='0123456789abcdef'
-def itoh(n):
-	return h[(n>>20)&0xf]+h[(n>>16)&0xf]+h[(n>>12)&0xf]+h[(n>>8)&0xf]+h[(n>>4)&0xf]+h[(n>>0)&0xf]
-
-class display( Frame ):
-
-	def draw(self):
-		self.canvas.delete('all')
-		
-		prediction = None
-		if self.model != None and self.use_model:
-			prediction = generate_heat_map(self.game, self.model)
-
-		mine_field = self.game.get_mine_field()
-		flag_field = self.game.get_flagged_field()
-		prox_field = self.game.get_proximity_field()
-		visi_field = self.game.get_visible_field()
-		bord_field = self.game.get_border_field()
-
-		(game_rows, game_cols) = self.game.get_field_shape()
-		for r in range(game_rows):
-			for c in range(game_cols):
-				
-				font = ('TakaoMincho', 16)
-
-				fill = 'white'
-				outline = 'black'
-				if flag_field[r][c]:
-					self.canvas.create_rectangle(1+c*SQ,1+r*SQ,1+(c+1)*SQ,1+(r+1)*SQ,fill='yellow',outline=outline)
-					fill = 'yellow'
-				elif visi_field[r][c]:
-					if mine_field[r][c]:
-						self.canvas.create_rectangle(1+c*SQ,1+r*SQ,1+(c+1)*SQ,1+(r+1)*SQ,fill='red',outline=outline)
-					else:
-						self.canvas.create_rectangle(1+c*SQ,1+r*SQ,1+(c+1)*SQ,1+(r+1)*SQ,fill='white',outline=outline)
-						if prox_field[r][c]:
-							self.canvas.create_text(c*SQ+SQ/2,r*SQ+SQ/2,font=font,text=str(prox_field[r][c]))
-				else:
-					self.canvas.create_rectangle(1+c*SQ,1+r*SQ,1+(c+1)*SQ,1+(r+1)*SQ,fill='grey',outline=outline)
-					fill = 'grey'
-
-				# these cells are 'border cells'
-				if bord_field[r][c]:
-					self.canvas.create_rectangle(2+c*SQ,2+r*SQ,(c+1)*SQ,(r+1)*SQ,fill=fill,outline='yellow')
-
-				# this is where the 'cursor' is
-				if r == self.row and c == self.col:
-					self.canvas.create_rectangle(2+c*SQ,2+r*SQ,(c+1)*SQ,(r+1)*SQ,fill=fill,outline='red')
-					if visi_field[r][c]:
-						if mine_field[r][c]:
-							self.canvas.create_rectangle(1+c*SQ,1+r*SQ,1+(c+1)*SQ,1+(r+1)*SQ,fill='red',outline=outline)
-						elif prox_field[r][c]:
-							self.canvas.create_text(c*SQ+SQ/2,r*SQ+SQ/2,font=font,text=str(prox_field[r][c]))
-
-		if prediction:
-			# find the minimum and maximum extents of the prediction values - this way, we can assign percentage values to cells
-			sum_over_interesting = []
-			for p in prediction:
-				r = p[1][0]
-				c = p[1][1]
-				
-				if visi_field[r][c] == 0 and flag_field[r][c] == 0:
-					sum_over_interesting.append(p[0])
-
-			if len(sum_over_interesting):
-				#print sum_over_interesting
-				coldest = min(sum_over_interesting)
-				warmest = max(sum_over_interesting)
-				t_range = warmest - coldest
-				average = float(t_range)/2
-
-				visualize = []
-				if t_range:
-					for p in prediction:
-						r = p[1][0]
-						c = p[1][1]
-
-						value = 0
-						if coldest <= p[0] <= warmest:
-							value = float(p[0] - coldest) / t_range
-
-						visualize.append((value,(r,c)))
-
-				for v in visualize:
-					value = 2*v[0] - 1
-
-					red = 255
-					green = 255
-					blue = 255
-
-					if value < 0:
-						red -= int(128*-value)
-						green -= int(128*-value)
-					else:
-						blue -= int(128*value)
-						green -= int(128*value)
-					
-					if red < 0:		red = 0
-					if green < 0:	green = 0
-					if blue < 0:	blue = 0	
-
-					color = (red<<16) + (green<<8) + blue
-
-					r = v[1][0]
-					c = v[1][1]
-
-					if visi_field[r][c]:
-						self.canvas.create_oval(3+c*SQ,3+r*SQ,c*SQ+SQ/3,r*SQ+SQ/3,fill='white')
-					else:
-						self.canvas.create_oval(3+c*SQ,3+r*SQ,c*SQ+SQ/3,r*SQ+SQ/3,fill='#'+itoh(color))
-
-						#if self.game.get_game_status() == self.game.INPROGRESS:
-						#	write_value = abs(value)
-
-						#	self.canvas.create_text(43+c*SQ,13+r*SQ,text=str(write_value)[:5])
-
-					if r == self.row and c == self.col:
-						print ('Model Predicts:',value)
-
-		if self.showing_mines:
-			for r in range(game_rows):
-				for c in range(game_cols):
-					if mine_field[r][c]:
-						self.canvas.create_oval(c*SQ+SQ/4,r*SQ+SQ/4,c*SQ+3*SQ/4,r*SQ+3*SQ/4,fill='red')
-
-		self.canvas.update_idletasks()
-		#time.sleep(0.2)
-
-	def nnsolver(self):
-		smitherines = False
-		while not smitherines:
-			while self.game.get_game_status() == self.game.INPROGRESS:
-				safe_moves = [x for x in self.game.get_moves() if not self.game.this_cell_is_mined(x)]
-
-				if len(safe_moves):
-					if self.game.first_move_has_been_made():
-						selected_move = select_top_moves(self.game, self.model, 1)[0]
-						if self.game.this_cell_is_mined(selected_move):
-							smitherines = True
-							self.game.forfeit_game()
-						else:
-							self.game.place_flag(selected_move)
-							self.draw()
-							self.game.remove_flag(selected_move)
-
-						self.game.visit_cell(selected_move)
-					else:
-						self.game.visit_cell(safe_moves[int(npr()*len(safe_moves))])
-				else:
-					self.game.forfeit_game()# because we're surrounded by mines ;(
-
-				self.draw()
-			smitherines = True
-			if not smitherines:
-				self.game = Minesweeper(GRID_R, GRID_C, MIN_MINES)			
-
-	def keyboard(self, event):
-		if event.keysym == 'Escape':		self.quit()
-
-		if event.keysym == 'Up':			self.row -= 1
-		if event.keysym == 'Down':			self.row += 1
-		if event.keysym == 'Left':			self.col -= 1
-		if event.keysym == 'Right':			self.col += 1
-
-		if self.row < 0:					self.row = 0
-		if self.row >= self.rows:			self.row = self.rows-1
-		if self.col < 0:					self.col = 0
-		if self.col >= self.cols:			self.col = self.cols-1
-
-		if event.char == 'e':				self.mines += 1
-		if event.char == 'q':				self.mines -= 1
-		if event.char == 'e' or event.char == 'q':	print ('Mines:',self.mines)
-		
-		if event.char == 'd':				self.cols += 1
-		if event.char == 'a':				self.cols -= 1
-		if self.cols < 1:					self.cols = 1
-		if event.char == 'd' or event.char == 'a':	print ('Columns adjusted to:',self.cols)
-		
-		if event.char == 'w':				self.rows += 1
-		if event.char == 's':				self.rows -= 1
-		if self.rows < 1:					self.rows = 1
-		if event.char == 'w' or event.char == 's':	print ('Rows adjusted to:',self.rows)
-
-		if event.char == 'i':				self.use_model ^= 1
-
-		if event.keysym == 'g':
-			self.mines = MIN_MINES
-			self.rows = GRID_R
-			self.cols = GRID_C
-
-			self.game = Minesweeper(self.rows, self.cols, self.mines)
-
-		if event.keysym == 'm':
-			self.showing_mines ^= 1
-
-		message = ''
-		if self.game: # don't do game actions when there's no game or you'll break things
-			if event.keysym == 's':
-				self.nnsolver()
-
-			if event.keysym == 'r':
-				self.game.reset()
-
-			if event.keysym == 'space':
-				if self.game.is_visible((self.row, self.col)):
-					self.game.set_invisible((self.row, self.col))
-				else:
-					message = 'game.visit_cell('+str(self.row)+','+str(self.col)+')'
-					self.game.visit_cell((self.row, self.col))
-
-			if event.keysym == 'f':
-				if self.game.get_flagged_field()[self.row][self.col]:
-					message = 'game.remove_flag('+str(self.row)+','+str(self.col)+')'
-					self.game.remove_flag((self.row, self.col))
-				else:
-					message = 'game.place_flag('+str(self.row)+','+str(self.col)+')'
-					self.game.place_flag((self.row, self.col))
-			
-			if event.keysym == 'b':
-				if self.game.get_mine_field()[self.row][self.col]:
-					message = 'game.remove_mine('+str(self.row)+','+str(self.col)+')'
-					self.game.remove_mine((self.row, self.col))
-				else:
-					message = 'game.place_mine('+str(self.row)+','+str(self.col)+')'
-					self.game.place_mine((self.row, self.col))
-			
-			if self.game.game_status == self.game.VICTORY:
-				for i in range(10):
-					print ('yay, victory!')
-			elif self.game.game_status == self.game.DEFEAT:
-				for i in range(10):
-					print ('boo, you lose')
-
-		print (event.keysym, event.char, message)
-
-		self.draw()
-	
-	def invent_canvas(self):
-		Frame.__init__(self)
-		self.master.title('Lane\'s MineSweeper')
-		self.master.rowconfigure(0,weight=1)
-		self.master.columnconfigure(0,weight=1)
-		self.grid(sticky=N+S+E+W)
-
-		self.canvas=Canvas(self,width=self.cols*SQ+1, height=self.rows*SQ+1, bg='white')
-		self.canvas.grid(row=0,column=0)
-
-		self.bind_all('<KeyPress>', self.keyboard)
-
-		self.draw()
-
-	def __init__(self):
-		self.showing_mines = 0
-
-		self.mines = MIN_MINES
-		self.rows = GRID_R
-		self.cols = GRID_C
-		
-		self.game = Minesweeper(self.rows, self.cols, self.mines)
-		self.model = load_model('debug model 16x30x99 3 - 3d model')
-		self.use_model = 0
-
-		self.row = 0
-		self.col = 0
-
-		self.invent_canvas()
-
 if __name__ == '__main__':
 	if selection == TRAIN_FROM_FILE:
-		#train_model_from_file(training_file, validation_file, build_convnet_with_convolutional_outputs(32, (3,3), 20), (GRID_R, GRID_C))
-		train_model_from_file(training_file, validation_file, build_3D_convnet_with_convolutional_outputs(32, (3,3,3), 20), (GRID_R, GRID_C))
-
-		'''
-		print ('linear to linear')
-		train_model_from_file(training_file, validation_file, build_linear_model(5), (GRID_R, GRID_C), False, False)
-
-		print ('convolutional to linear')
-		train_model_from_file(training_file, validation_file, build_convnet_with_linear_outputs(32, (3,3), 20), (GRID_R, GRID_C), True, False)
-
-		print ('convolutional to convolutional')
-		train_model_from_file(training_file, validation_file, build_convnet_with_convolutional_outputs(32, (3,3), 20), (GRID_R, GRID_C))
-
-		print ('c2c with residual connections')
-		train_model_from_file(training_file, validation_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(1,1),(1,1),(1,1)]), (GRID_R, GRID_C))
-
-		print ('c2c with residual connections and dilated convolutions')
-		train_model_from_file(training_file, validation_file, build_resnet_with_ID(32, (3,3), 5, [(1,1),(2,2),(4,4),(8,8)]), (GRID_R, GRID_C))
-		'''
-
+		train_model_from_file(training_file, validation_file, build_2d_model(32, (3,3), 10), (GRID_R, GRID_C))
 	elif selection == BUILD:
 		build_difficulty_stats( GRID_R, GRID_C, 10000 )
 	elif selection == EVALUATE:
 		evaluate(1000, load_model('debug model 16x30x99 3 - 3d model'))
-	elif selection == PLAY:
-		display().mainloop()
