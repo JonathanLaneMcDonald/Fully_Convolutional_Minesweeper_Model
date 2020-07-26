@@ -1,61 +1,10 @@
 
 from common import *
+from evaluate import board_to_features, generate_heat_map, select_top_moves
 from MinesweeperClass import *
 
 import numpy as np
 from keras.models import load_model
-
-def board_to_features(game):
-	rows = game.rows
-	cols = game.cols
-	channels = CHANNELS
-
-	new_array = np.zeros((rows, cols, channels), dtype=np.uint8)
-
-	proximal = game.get_proximity_field()
-	visible = game.get_visible_field()
-
-	for r in range(game.rows):
-		for c in range(game.cols):
-			if visible[r][c]:
-				new_array[r][c][proximal[r][c]] = 1
-
-	return new_array
-
-def generate_heat_map(game, model):
-	input_features = np.array(board_to_features(game), dtype=np.intc).reshape(1, GRID_R, GRID_C, CHANNELS)
-	prediction = model.predict(input_features).reshape(GRID_CELLS)
-
-	flag_field = game.get_flagged_field()
-
-	heat_map = []
-	for i in range(len(prediction)):
-		r = i//GRID_C
-		c = i%GRID_C
-		if flag_field[r][c]:
-			# FIXME: don't change this value here.  check for flags somewhere else because this compromises the goal of the function
-			heat_map.append((float(-1),(r,c)))
-		else:
-			heat_map.append((float(prediction[i]),(r,c)))
-
-	return heat_map
-
-def select_top_moves(game, model, moves_requested):
-	heat_map = generate_heat_map(game, model)
-	heat_map.sort()
-	heat_map.reverse()
-	
-	# just start by picking the top preferences
-	top_moves = []
-	possible_moves = game.get_visible_field()
-	for i in heat_map:
-		r = i[1][0]
-		c = i[1][1]
-		if possible_moves[r][c] == 0:
-			top_moves.append((r,c))
-			if len(top_moves) == moves_requested:
-				return top_moves
-	return top_moves
 
 from tkinter import *
 
@@ -296,7 +245,7 @@ class display( Frame ):
 		self.canvas.grid(row=0,column=0)
 
 		self.game = Minesweeper(self.rows, self.cols, self.mines)
-		self.model = load_model('debug model 16x30x99 3 - 3d model')
+		self.model = load_model('debug model 16x30x99 0')
 		self.use_model = 0
 
 		self.row = 0
