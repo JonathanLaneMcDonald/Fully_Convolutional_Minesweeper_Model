@@ -1,26 +1,20 @@
 
-import os
-import time
-import numpy as np
-from math import log
-
-from copy import copy
 from common import *
 from MinesweeperClass import *
 
-from numpy.random import random as npr
 from numpy.random import shuffle
 
-from keras.models import Model, load_model
+from keras.models import Model, save_model
 from keras.layers import Input, Dropout, Activation, Conv2D, Add
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 
+
 def build_2d_model(filters, kernels, layers):
 	
-	input = Input(shape=(GRID_R,GRID_C,CHANNELS))
+	inputs = Input(shape=(GRID_R, GRID_C, CHANNELS))
 
-	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(input)
+	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(inputs)
 	x = BatchNormalization()(x)
 	x = Activation('relu')(x)
 	x = Dropout(0.2)(x)
@@ -30,13 +24,14 @@ def build_2d_model(filters, kernels, layers):
 		y = BatchNormalization()(y)
 		y = Activation('relu')(y)
 		y = Dropout(0.2)(y)
-		x = Add()([x,y])
+		x = Add()([x, y])
 
-	output = Conv2D(filters=1, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
+	outputs = Conv2D(filters=1, kernel_size=(1, 1), padding='same', activation='sigmoid')(x)
 
-	model = Model(inputs=input, outputs=output)
+	model = Model(inputs=inputs, outputs=outputs)
 	model.summary()
 	return model
+
 
 def compact_frame_to_convolutional_features(string, shape):
 	rows, cols = shape
@@ -50,6 +45,7 @@ def compact_frame_to_convolutional_features(string, shape):
 	
 	return features
 
+
 def compact_frame_to_convolutional_labels(string, shape):
 	rows, cols = shape
 
@@ -62,6 +58,7 @@ def compact_frame_to_convolutional_labels(string, shape):
 	
 	return labels
 
+
 def frames_to_dataset(dataset, shape):
 	features = np.zeros((len(dataset), shape[0], shape[1], CHANNELS), dtype=np.uint8)
 	labels = np.zeros((len(dataset), shape[0], shape[1], 1), dtype=np.uint8)
@@ -72,14 +69,15 @@ def frames_to_dataset(dataset, shape):
 
 	return features, labels
 
+
 def train_model_from_file(training_datafile, validation_datafile, model, shape):
-	training_dataset = [x for x in open(training_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
-	print (len(training_dataset),'items loaded into training dataset')
+	training_dataset = [x for x in open(training_datafile, 'r').read().split('\n') if len(x) == shape[0]*shape[1]]
+	print(len(training_dataset), 'items loaded into training dataset')
 
-	validation_dataset = [x for x in open(validation_datafile,'r').read().split('\n') if len(x) == shape[0]*shape[1]]
-	print (len(validation_dataset),'items loaded into validation dataset')
+	validation_dataset = [x for x in open(validation_datafile, 'r').read().split('\n') if len(x) == shape[0]*shape[1]]
+	print(len(validation_dataset), 'items loaded into validation dataset')
 
-	model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.002), metrics=['accuracy'])
+	model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
 
 	batch_size = 32
 	training_samples = 10000 * batch_size
@@ -93,7 +91,9 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 		training_features, training_labels = frames_to_dataset(training_dataset[:training_samples], shape)
 		validation_features, validation_labels = frames_to_dataset(validation_dataset[:validation_samples], shape)
 
-		instance = model.fit(training_features, training_labels, batch_size=batch_size, epochs=1, verbose=1, validation_data=(validation_features, validation_labels))
+		instance = model.fit(
+			training_features, training_labels, batch_size=batch_size, epochs=1,
+			verbose=1, validation_data=(validation_features, validation_labels))
 
 		for key, value in instance.history.items():
 			if key in history:
@@ -102,8 +102,10 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 				history[key] = value
 
 		for key, values in history.items():
-			print (key + ' ' + ' '.join([str(x) for x in values]))
+			print(key + ' ' + ' '.join([str(x) for x in values]))
 
-		model.save('debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e))
+		filename = 'debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e)
+		save_model(model, filename, include_optimizer=False, save_format='h5')
 
-train_model_from_file('training', 'validation', build_2d_model(32, (3,3), 20), (GRID_R, GRID_C))
+
+train_model_from_file('training', 'validation', build_2d_model(16, (3, 3), 10), (GRID_R, GRID_C))
