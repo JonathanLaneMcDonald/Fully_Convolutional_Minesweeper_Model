@@ -16,8 +16,11 @@ def itoh(n):
 
 
 class MinesweeperUI(Frame):
+	"""GUI for playing and manipulating games of Minesweepers with model integration for evaluation/assistance"""
 
 	def draw(self):
+		"""Update the display to reflect the current game state"""
+
 		self.canvas.delete('all')
 		
 		prediction = None
@@ -132,6 +135,8 @@ class MinesweeperUI(Frame):
 		self.canvas.update_idletasks()
 
 	def nnsolver(self):
+		"""Use the loaded model to advance the game until it concludes"""
+
 		if self.use_model:
 			while self.game.get_game_status() == self.game.INPROGRESS:
 				safe_moves = [x for x in self.game.get_moves() if not self.game.this_cell_is_mined(x)]
@@ -159,6 +164,7 @@ class MinesweeperUI(Frame):
 				self.draw()
 
 	def keyboard(self, event):
+
 		if event.keysym == 'Escape':
 			self.quit()
 
