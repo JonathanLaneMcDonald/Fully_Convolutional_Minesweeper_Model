@@ -255,7 +255,7 @@ class MinesweeperUI(Frame):
 		self.canvas.grid(row=0, column=0)
 
 		self.game = Minesweeper(self.rows, self.cols, self.mines)
-		self.model = load_model('minesweeper model 8x8x10')
+		self.model = load_model('minesweeper model 16x30x99')
 		self.model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 		self.use_model = 0
 

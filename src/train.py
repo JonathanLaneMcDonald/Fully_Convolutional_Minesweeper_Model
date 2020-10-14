@@ -124,4 +124,4 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 		save_model(model, filename, include_optimizer=False, save_format='h5')
 
 
-train_model_from_file('training', 'validation', build_2d_model(16, (3, 3), 10), (GRID_R, GRID_C))
+train_model_from_file('training', 'validation', build_2d_model(32, (3, 3), 20), (GRID_R, GRID_C))

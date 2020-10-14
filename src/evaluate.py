@@ -30,9 +30,7 @@ def board_to_features(game):
 def generate_heat_map(game, model):
 	"""Receive an instance of Minesweeper and a model and produce a heat map across all moves"""
 
-	model_prediction = model.predict(np.array(board_to_features(game)).reshape(1, GRID_R, GRID_C, CHANNELS))
-
-	prediction = model_prediction.reshape(GRID_CELLS)
+	prediction = model.predict(np.array(board_to_features(game)).reshape(1, GRID_R, GRID_C, CHANNELS)).reshape(GRID_CELLS)
 
 	flag_field = game.get_flagged_field()
 
@@ -121,7 +119,7 @@ def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=Fals
 
 
 if __name__ == "__main__":
-	model = load_model('minesweeper model 8x8x10')
+	model = load_model('minesweeper model 16x30x99')
 	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 	model.summary()
 
