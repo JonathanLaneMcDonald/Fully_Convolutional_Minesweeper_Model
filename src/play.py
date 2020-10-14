@@ -7,7 +7,7 @@ from keras.models import load_model
 
 from tkinter import *
 
-SQ = 24
+SQ = 32
 
 
 def itoh(n):
@@ -134,6 +134,14 @@ class MinesweeperUI(Frame):
 
 		self.canvas.update_idletasks()
 
+		if self.capture_frames:
+			self.frame_number += 1
+			self.canvas.postscript(file='msplay frame '+self.front_pad_me(str(self.frame_number), '0', 6)+'.ps', colormode='color')
+
+	@staticmethod
+	def front_pad_me(string, pad_symbol, total_length):
+		return pad_symbol*(total_length-len(string)) + string
+
 	def nnsolver(self):
 		"""Use the loaded model to advance the game until it concludes"""
 
@@ -193,6 +201,10 @@ class MinesweeperUI(Frame):
 		if event.char == 'e' or event.char == 'q':
 			print('Mines:', self.mines)
 		
+		if event.char == 'F':
+			self.capture_frames ^= 1
+			print('frame capture state:', bool(self.capture_frames))
+
 		if event.char == 'i':
 			self.use_model ^= 1
 
@@ -267,6 +279,9 @@ class MinesweeperUI(Frame):
 
 		self.row = 0
 		self.col = 0
+
+		self.capture_frames = 0
+		self.frame_number = 0
 
 		self.bind_all('<KeyPress>', self.keyboard)
 
