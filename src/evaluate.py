@@ -8,6 +8,8 @@ from keras.models import load_model
 
 
 def board_to_features(game):
+	"""Receive an instance of a Minesweeper game and produce game features"""
+
 	rows = game.rows
 	cols = game.cols
 	channels = CHANNELS
@@ -26,6 +28,8 @@ def board_to_features(game):
 
 
 def generate_heat_map(game, model):
+	"""Receive an instance of Minesweeper and a model and produce a heat map across all moves"""
+
 	model_prediction = model.predict(np.array(board_to_features(game)).reshape(1, GRID_R, GRID_C, CHANNELS))
 
 	prediction = model_prediction.reshape(GRID_CELLS)
@@ -46,6 +50,8 @@ def generate_heat_map(game, model):
 
 
 def select_top_moves(game, model, moves_requested):
+	"""Receive a game and a model, produce a heat map across all moves, and return the top-n moves"""
+
 	heat_map = generate_heat_map(game, model)
 	heat_map.sort()
 	heat_map.reverse()
@@ -63,31 +69,9 @@ def select_top_moves(game, model, moves_requested):
 	return top_moves
 
 
-def build_difficulty_stats(rows, cols, games):
-	for mines in range(MIN_MINES, MAX_MINES + 1):
-		wins = 0
-		losses = 0
-		for i in range(games):
-			game = Minesweeper(rows, cols, mines)
-
-			while game.get_game_status() == game.INPROGRESS:
-				unvisited_cells = game.get_moves()
-				selection = int(npr() * len(unvisited_cells))
-
-				r = unvisited_cells[selection][0]
-				c = unvisited_cells[selection][1]
-
-				game.visit_cell((r, c))
-
-			if game.get_game_status() == game.VICTORY:
-				wins += 1
-			elif game.get_game_status() == game.DEFEAT:
-				losses += 1
-
-		print(mines, 'mines', wins, 'wins', losses, 'losses')
-
-
 def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=False):
+	"""Play a bunch of games with the provided model to see how good it is -- write some basic stats to stdout"""
+
 	deaths = 0
 	moves_played = 0
 	games_played = 0
