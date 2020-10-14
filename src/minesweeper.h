@@ -1,31 +1,35 @@
 
-
 #include <string>
 #include <random>
 #include <iostream>
 #include <vector>
 #include <tuple>
 
-enum
+enum class GameState
 {
-	FRESH = 0,
-	UNDERWAY,
-	VICTORY,
-	DEFEAT
+	Fresh = 0,
+	Underway,
+	Victory,
+	Defeat
 };
 
-enum
+enum class CellState
 {
 	// also storing proximity in the board, so these flags can start later
-	VISIBLE = 10,
-	BORDER,
-	MINED
+	Visible = 10,
+	Border,
+	Mined
 };
+
+int operator<<(const int &a, const CellState &b)
+{
+	return a<<static_cast<int>(b);
+}
 
 class MineSweeper
 {
 public:
-	MineSweeper(const int rows, const int cols, const int mines, std::mt19937& gen, std::uniform_real_distribution<>& dis)
+	MineSweeper(int rows, int cols, int mines, std::mt19937& gen, std::uniform_real_distribution<>& dis)
 	: 	_rows(rows),
 		_cols(cols),
 		_mines(mines),
@@ -37,7 +41,7 @@ public:
 
 	void reset()
 	{
-		_status = FRESH;
+		_status = GameState::Fresh;
 
 		_frames.resize(0);
 
@@ -56,9 +60,9 @@ public:
 		{
 			r = int(_rows * _dis(_gen));
 			c = int(_cols * _dis(_gen));
-			if (!(_board[r][c] & (1<<MINED)))
+			if (!(_board[r][c] & (1<<CellState::Mined)))
 			{
-				_board[r][c] |= (1<<MINED);
+				_board[r][c] |= (1<<CellState::Mined);
 				placed_mines ++;
 			}
 		}
@@ -72,7 +76,7 @@ public:
 				int mined_neighbors = 0;
 				for (int r = row-1; r < row+2; r ++)
 					for (int c = col-1; c < col+2; c ++)
-						if (0 <= r && r < _rows && 0 <= c && c < _cols && _board[r][c]&(1<<MINED))
+						if (0 <= r && r < _rows && 0 <= c && c < _cols && _board[r][c]&(1<<CellState::Mined))
 							mined_neighbors ++;
 				_board[row][col] |= mined_neighbors;
 			}
@@ -86,9 +90,9 @@ public:
 				int visible_neighbors = false;
 				for (int r = row-1; r < row+2; r ++)
 					for (int c = col-1; c < col+2; c ++)
-						if (0 <= r && r < _rows && 0 <= c && c < _cols && _board[r][c]&(1<<VISIBLE))
+						if (0 <= r && r < _rows && 0 <= c && c < _cols && _board[r][c]&(1<<CellState::Visible))
 							visible_neighbors = true;
-				visible_neighbors && !(_board[row][col] & (1<<VISIBLE)) ? _board[row][col] |= (1<<BORDER) : _board[row][col] &= ~(1<<BORDER);
+				visible_neighbors && !(_board[row][col] & (1<<CellState::Visible)) ? _board[row][col] |= (1<<CellState::Border) : _board[row][col] &= ~(1<<CellState::Border);
 			}
 	}
 
@@ -105,7 +109,7 @@ public:
 			int row = std::get<0>(move);
 			int col = std::get<1>(move);
 
-			_board[row][col] |= (1<<VISIBLE);
+			_board[row][col] |= (1<<CellState::Visible);
 
 			//if i know there are no mines nearby, then i'll reveal and visit everything near me
 			if (!(_board[row][col]&1023))
@@ -113,10 +117,10 @@ public:
 					for (int c = col-1; c < col+2; c++)
 						if (0 <= r && r < _rows && 0 <= c && c < _cols)
 						{
-							if (!(_board[r][c]&1023) && !(_board[r][c]&(1<<VISIBLE)))
+							if (!(_board[r][c]&1023) && !(_board[r][c]&(1<<CellState::Visible)))
 								moves.push_back(std::make_tuple(r,c));
 
-							_board[r][c] |= (1<<VISIBLE);
+							_board[r][c] |= (1<<CellState::Visible);
 						}
 
 		}
@@ -125,7 +129,7 @@ public:
 
 		state_to_frame();
 
-		_status = UNDERWAY;
+		_status = GameState::Underway;
 	}
 
 	void make_random_safe_move()
@@ -134,14 +138,14 @@ public:
 		std::vector<std::tuple<int, int> > moves(0);
 		for (int r = 0; r < _rows; r++)
 			for (int c = 0; c < _cols; c++ )
-				if (!(_board[r][c] & (1<<VISIBLE)) && !(_board[r][c] & (1<<MINED)))
+				if (!(_board[r][c] & (1<<CellState::Visible)) && !(_board[r][c] & (1<<CellState::Mined)))
 				{
 					moves.push_back(std::make_tuple(r,c));
 				}
 
 		if (moves.empty())
 		{
-			_status = VICTORY;
+			_status = GameState::Victory;
 		}
 		else
 		{
@@ -157,7 +161,7 @@ public:
 		std::vector<std::tuple<int, int> > moves(0);
 		for (int r = 0; r < _rows; r++)
 			for (int c = 0; c < _cols; c++ )
-				if (!(_board[r][c] & (1<<VISIBLE)) && !(_board[r][c] & (1<<MINED)) && (_board[r][c] & (1<<BORDER)))
+				if (!(_board[r][c] & (1<<CellState::Visible)) && !(_board[r][c] & (1<<CellState::Mined)) && (_board[r][c] & (1<<CellState::Border)))
 				{
 					moves.push_back(std::make_tuple(r,c));
 				}
@@ -182,11 +186,11 @@ public:
 		for (int r = 0; r < _rows; r++)
 			for (int c = 0; c < _cols; c++)
 			{
-				if (_board[r][c]&(1<<VISIBLE))
+				if (_board[r][c]&(1<<CellState::Visible))
 					message[r*_cols + c] = char(48 + _board[r][c]&1023);
-				else if(_board[r][c]&(1<<MINED))
+				else if(_board[r][c]&(1<<CellState::Mined))
 					message[r*_cols + c] = char(33);
-				else if(_board[r][c]&(1<<BORDER))
+				else if(_board[r][c]&(1<<CellState::Border))
 					message[r*_cols + c] = char(115);
 				else
 					message[r*_cols + c] = char(63);
@@ -203,9 +207,9 @@ public:
 
 	void print_everything()
 	{
-		print_board("visibility", 1<<VISIBLE);
-		print_board("border cells", 1<<BORDER);
-		print_board("mines", 1<<MINED);
+		print_board("visibility", 1<<CellState::Visible);
+		print_board("border cells", 1<<CellState::Border);
+		print_board("mines", 1<<CellState::Mined);
 		print_board("proximity", 1023, false);
 	}
 
@@ -225,7 +229,7 @@ public:
 		}		
 	}
 
-	int _status;
+	GameState _status;
 
 private:
 	int _rows;

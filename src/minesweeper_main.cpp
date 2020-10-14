@@ -1,23 +1,33 @@
 
-//g++ main.cpp -o minesweeper -lpthread -std=c++11 -O2
+// I originally wrote this in linux. Posix threads don't seem to work properly in Windows. I'll need to look into that.
+// For now, run with one thread
+// Usage: minesweeper [rows] [cols] [mines] [samples] [threads] > outfile
+// Note: train.py is expecting 'training' and 'validation' files, so use one or the other in place of "outfile" in the line above
+// What a janky way to do comments, lol. I really need to update this stuff with proper options :D
+
+// g++ main.cpp -o minesweeper -lpthread -std=c++11 -O2
 
 #include "minesweeper.h"
 
 #include <mutex>
 #include <thread>
 
+/*
+Play a specified number of games of minesweeper across a specified number of threads.
+Select a random frame from each game played and write it to stdout.
+This output can be redirected to a file and used for training by calling train.py without modification.
+*/
 void play_games(int id, int rows, int cols, int mines, int samples, std::mutex* mutex)
 {
 	std::random_device rd;
     std::mt19937 _gen(rd());
     std::uniform_real_distribution<> _dis(0.0, 1.0);
 
-	MineSweeper game = MineSweeper(rows,cols,mines,_gen,_dis);
+	MineSweeper game = MineSweeper(rows, cols, mines, _gen, _dis);
 
 	for (int i = 0; i < samples; i++)
 	{
-		//game.print_everything();
-		while (game._status == UNDERWAY || game._status == FRESH)
+		while (game._status == GameState::Underway || game._status == GameState::Fresh)
 			game.make_random_safe_border_move();
 
 		auto frames = game.get_frames();
@@ -26,8 +36,6 @@ void play_games(int id, int rows, int cols, int mines, int samples, std::mutex* 
 		mutex->lock();
 		std::cout << frames[index] << std::endl;
 		mutex->unlock();
-
-		//game.print_everything();
 
 		game.reset();
 	}
