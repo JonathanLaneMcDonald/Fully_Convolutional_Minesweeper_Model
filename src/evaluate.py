@@ -1,3 +1,6 @@
+
+from sys import argv
+
 from common import *
 from MinesweeperClass import *
 
@@ -119,8 +122,15 @@ def evaluate(target_games, model, mines=MIN_MINES, nn_predicts_opening_move=Fals
 
 
 if __name__ == "__main__":
-	model = load_model('minesweeper model 16x30x99')
-	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-	model.summary()
 
-	evaluate(10000, model)
+	if len(argv) == 2:
+		try:
+			model = load_model(argv[1])
+			model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+			model.summary()
+		except:
+			print('An error occurred while loading the model')
+
+		evaluate(10000, model)
+	else:
+		print('Usage: python evaluate.py [model path]')
