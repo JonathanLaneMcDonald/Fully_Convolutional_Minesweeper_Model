@@ -5,7 +5,7 @@
 // Note: train.py is expecting 'training' and 'validation' files, so use one or the other in place of "outfile" in the line above
 // What a janky way to do comments, lol. I really need to update this stuff with proper options :D
 
-// g++ main.cpp -o minesweeper -lpthread -std=c++11 -O2
+// g++ minesweeper_main.cpp -o minesweeper -lpthread -O3
 
 #include "minesweeper.h"
 
