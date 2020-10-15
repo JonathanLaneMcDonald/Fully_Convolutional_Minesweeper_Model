@@ -1,4 +1,6 @@
 
+from sys import argv
+
 from common import *
 from evaluate import generate_heat_map, select_top_moves
 from MinesweeperClass import *
@@ -206,7 +208,8 @@ class MinesweeperUI(Frame):
 			print('frame capture state:', bool(self.capture_frames))
 
 		if event.char == 'i':
-			self.use_model ^= 1
+			if self.model:
+				self.use_model ^= 1
 
 		if event.keysym == 'g':
 			self.game = Minesweeper(self.rows, self.cols, self.mines)
@@ -273,9 +276,19 @@ class MinesweeperUI(Frame):
 		self.canvas.grid(row=0, column=0)
 
 		self.game = Minesweeper(self.rows, self.cols, self.mines)
-		self.model = load_model('minesweeper model 16x30x99')
-		self.model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-		self.use_model = 0
+
+		if len(argv) == 2:
+			try:
+				self.model = load_model('minesweeper model 16x30x99')
+				self.model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+				self.use_model = 1
+			except:
+				print('Usage: python play.py [model path (optional)]')
+				self.model = None
+				self.use_model = 0
+		else:
+			self.model = None
+			self.use_model = 0
 
 		self.row = 0
 		self.col = 0

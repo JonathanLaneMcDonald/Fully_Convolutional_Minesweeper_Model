@@ -22,26 +22,54 @@ Before getting into detail on how all this works, a few details on how to procee
     ```
     g++ minesweeper_main.cpp -o minesweeper -lpthread -O3
     ```
+   
     Once compiled, you'll build your datasets using the following parameter scheme
+
     ```
     ./minesweeper [rows] [cols] [mines] [desired number of samples] [execution threads]
     ```
+
     As an example, you might run the two lines below to generate your training and validation sets using 8 threads. 
+
     ```
     ./minesweeper 16 30 99 1000000 8 > training
     ./minesweeper 16 30 99 100000 8 > validation
     ```
+
     * Note: that I wrote this on a linux machine and it compiles and runs fine on windows, but threading doesn't work yet in windows, so it seems fastest to run in 1 thread for now unless you're on a linux machine. I'll fix that at some point.
     * Note: defaults for grid size and number of mines are defined in common.py, so make sure they match the dimensions of the dataset you generate.
 
 2) Train a model on the generated datasets
+
     ```
     python train.py training validation
     ```
+
     This will take a while, depending on your hardware, but trained models will start popping out. You may need to adjust the batch size depending on how much memory you have available. There will also be a progress report after each training round so you can see how everything's going.
 
-3) 
-   
+3) Evaluate a trained model
+
+    ```
+    python evaluate.py "minesweeper model 16x30x99"
+    ```
+    
+    Running evaluate.py with a model will give you some cryptic output about win rates and safe move rates and likelihood that a random sampler would get the same results and stuff like that. It's pretty cool :D
+
+4) Play a game in a GUI with model integration
+
+    To play without model integration, just run the play script
+    
+    ```
+    python play.py
+    ```
+    
+    To play *with* model integration, include the path to a trained model
+    
+    ```
+    python play.py "minesweeper model 16x30x99"
+    ```
+    
+    * Note: models only work on the grid size they were trained on (for now)
 
 ## Introduction/Overview
 
