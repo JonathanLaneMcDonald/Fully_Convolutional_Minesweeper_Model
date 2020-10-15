@@ -12,11 +12,36 @@ The result was a model that makes safe moves 99.6% of the time, wins 41.1% of ga
 
 Check this out! The model playing in the gif and the associated code are available in src/
 
-![Minesweeper Model Demo :D](model_pwns_expert_minefield.gif)
+![Minesweeper Model Demo :D](model_pwns_expert_minefield.gif-fake)
 
-## Getting Started
+## Running Everything
 
-Before getting into detail on how all this works,  
+Before getting into detail on how all this works, a few details on how to proceed with compiling and running everything because I haven't made it particularly user-friendly yet :D
+
+1) Compile and run the dataset generator, head to the src/ directory and run:
+    ```
+    g++ minesweeper_main.cpp -o minesweeper -lpthread -O3
+    ```
+    Once compiled, you'll build your datasets using the following parameter scheme
+    ```
+    ./minesweeper [rows] [cols] [mines] [desired number of samples] [execution threads]
+    ```
+    As an example, you might run the two lines below to generate your training and validation sets using 8 threads. 
+    ```
+    ./minesweeper 16 30 99 1000000 8 > training
+    ./minesweeper 16 30 99 100000 8 > validation
+    ```
+    * Note: that I wrote this on a linux machine and it compiles and runs fine on windows, but threading doesn't work yet in windows, so it seems fastest to run in 1 thread for now unless you're on a linux machine. I'll fix that at some point.
+    * Note: defaults for grid size and number of mines are defined in common.py, so make sure they match the dimensions of the dataset you generate.
+
+2) Train a model on the generated datasets
+    ```
+    python train.py training validation
+    ```
+    This will take a while, depending on your hardware, but trained models will start popping out. You may need to adjust the batch size depending on how much memory you have available. There will also be a progress report after each training round so you can see how everything's going.
+
+3) 
+   
 
 ## Introduction/Overview
 
