@@ -12,7 +12,7 @@ The result was a model that makes safe moves 99.6% of the time, wins 41.1% of ga
 
 Check this out! The model playing in the gif and the associated code are available in src/
 
-![Minesweeper Model Demo :D](model_pwns_expert_minefield.gif-fake)
+![Minesweeper Model Demo :D](model_pwns_expert_minefield.gif)
 
 ## Running Everything
 
