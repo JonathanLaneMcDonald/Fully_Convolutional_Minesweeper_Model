@@ -122,7 +122,7 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 		for key, values in history.items():
 			print(key + ' ' + ' '.join([str(x) for x in values]))
 
-		filename = 'debug model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e)
+		filename = 'minesweeper model '+str(shape[0])+'x'+str(shape[1])+'x'+str(MIN_MINES)+' '+str(e)
 		save_model(model, filename, include_optimizer=False, save_format='h5')
 
 
