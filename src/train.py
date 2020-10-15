@@ -1,4 +1,6 @@
 
+from sys import argv
+
 from common import *
 from MinesweeperClass import *
 
@@ -124,4 +126,7 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 		save_model(model, filename, include_optimizer=False, save_format='h5')
 
 
-train_model_from_file('training', 'validation', build_2d_model(32, (3, 3), 20), (GRID_R, GRID_C))
+if len(argv) == 3:
+	train_model_from_file(argv[1], argv[2], build_2d_model(32, (3, 3), 20), (GRID_R, GRID_C))
+else:
+	print('Usage: python train.py [training dataset path] [validation dataset path]')
