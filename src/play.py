@@ -279,7 +279,7 @@ class MinesweeperUI(Frame):
 
 		if len(argv) == 2:
 			try:
-				self.model = load_model('minesweeper model 16x30x99')
+				self.model = load_model(argv[1])
 				self.model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 				self.use_model = 1
 			except:
