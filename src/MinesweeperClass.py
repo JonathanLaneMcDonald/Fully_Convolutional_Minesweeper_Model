@@ -7,6 +7,8 @@ class Minesweeper:
 	"""Implement the rules of Minesweeper :D"""
 
 	def __init__(self, rows, cols, number_of_mines):
+		"""Set up a random minefield"""
+
 		self.DEFEAT = -1
 		self.INPROGRESS = 0
 		self.VICTORY = 1
@@ -26,6 +28,8 @@ class Minesweeper:
 		self.border_cells = self.initialize_border_cells(self.mine_field)
 
 	def reset(self):
+		"""Reinitialize the minefield"""
+
 		self.visible_cells = self.initialize_visible_cells(self.mine_field)
 		self.flagged_cells = self.initialize_flagged_cells(self.mine_field)
 		self.update_border_cells()
@@ -65,6 +69,8 @@ class Minesweeper:
 		return self.game_status
 
 	def get_moves(self):
+		"""Get a list of all unvisited cells"""
+
 		unvisited_cells = []
 		for r in range(self.rows):
 			for c in range(self.cols):
@@ -72,14 +78,9 @@ class Minesweeper:
 					unvisited_cells.append((r, c))
 		return unvisited_cells
 	
-	def get_moves_for_rl(self):
-		unvisited_cells = []
-		for r in range(self.rows):
-			for c in range(self.cols):
-				unvisited_cells.append(self.visible_cells[r][c] ^ 1)
-		return unvisited_cells
-	
 	def get_border_cells(self):
+		"""Get a list of cells bordering uncovered cells"""
+
 		bordering_cells = []
 		for r in range(self.rows):
 			for c in range(self.cols):
@@ -118,9 +119,9 @@ class Minesweeper:
 	def generate_fresh_field(int_size, shape_tuple):
 		return np.zeros(int_size, dtype=np.intc).reshape(shape_tuple)
 
-	# generate a new field and plant mines in it
 	def initialize_mine_field(self, number_of_mines):
-		
+		"""Generate a new minefield and plant mines in it"""
+
 		new_field = self.generate_fresh_field(self.rows*self.cols, (self.rows, self.cols))
 		
 		number_of_cells = self.rows * self.cols
@@ -141,8 +142,9 @@ class Minesweeper:
 		
 		return new_field
 	
-	# generate a field saying how many mines are adjacent to this cell
 	def initialize_proximity_field(self, minefield):
+		"""Generate a field saying how many mines are adjacent to this cell"""
+
 		new_field = self.generate_fresh_field(minefield.size, minefield.shape)
 
 		self.generous_first_moves = []
@@ -164,8 +166,9 @@ class Minesweeper:
 
 		return new_field
 	
-	# generate a field saying how many mines are adjacent to this cell
 	def update_border_cells(self):
+		"""Generate a field saying how many mines are adjacent to this cell"""
+
 		self.border_cells = self.generate_fresh_field(self.mine_field.size, self.mine_field.shape)
 
 		# visit each cell
@@ -183,12 +186,14 @@ class Minesweeper:
 	def initialize_border_cells(self, minefield):
 		return self.generate_fresh_field(minefield.size, minefield.shape)
 
-	# generate a field where, by default, nothing is visible
 	def initialize_visible_cells(self, minefield):
+		"""Generate a field where, by default, nothing is visible"""
+
 		return self.generate_fresh_field(minefield.size, minefield.shape)
 
-	# generate a field where, by default, no cells are flagged
 	def initialize_flagged_cells(self, minefield):
+		"""Generate a field where, by default, no cells are flagged"""
+
 		return self.generate_fresh_field(minefield.size, minefield.shape)
 
 	def set_flag(self, move, value):
@@ -238,6 +243,8 @@ class Minesweeper:
 		self.set_mine(move, 0)
 	
 	def visit_cell(self, move):
+		"""Visit the specified cell and update the field accordingly"""
+
 		self._first_move_has_been_made = True
 
 		r = move[0]
@@ -250,6 +257,8 @@ class Minesweeper:
 				self.update_border_cells()
 
 	def render_unto_visible_what_is_visible(self):
+		"""Find out what should be visible and make it visible"""
+
 		still_updating = True
 
 		while still_updating:
@@ -275,6 +284,8 @@ class Minesweeper:
 										still_updating = True
 			
 	def update_game_status(self):
+		"""Figure out if we just died or won or if we're still playing"""
+
 		i_stepped_on_a_mine = False
 		i_won = True
 
