@@ -53,7 +53,8 @@ public:
 		_cols(cols),
 		_mines(mines),
 		_gen(gen),
-		_dis(dis)
+		_dis(dis),
+		_status(GameState::Fresh)
 	{
 		reset();
 	}
@@ -286,7 +287,13 @@ public:
 		}		
 	}
 
-	GameState _status;
+	/*
+	* Tell the user about the current game state
+	*/
+	GameState status()
+	{
+		return _status;
+	}
 
 private:
 	int _rows;
@@ -298,4 +305,6 @@ private:
 
 	std::vector<std::string> _frames;
 	std::vector<std::vector<int> > _board;
+
+	GameState _status;
 };

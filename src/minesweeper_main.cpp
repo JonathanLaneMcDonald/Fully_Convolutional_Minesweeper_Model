@@ -27,7 +27,7 @@ void play_games(int id, int rows, int cols, int mines, int samples, std::mutex* 
 
 	for (int i = 0; i < samples; i++)
 	{
-		while (game._status == GameState::Underway || game._status == GameState::Fresh)
+		while (game.status() == GameState::Underway || game.status() == GameState::Fresh)
 			game.make_random_safe_border_move();
 
 		auto frames = game.get_frames();
