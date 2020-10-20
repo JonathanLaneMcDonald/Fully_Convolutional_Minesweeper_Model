@@ -3,7 +3,6 @@
 #include <random>
 #include <iostream>
 #include <vector>
-#include <tuple>
 
 enum class GameState
 {
@@ -28,6 +27,16 @@ int operator<<(const int &a, const CellState &b)
 {
 	return a<<static_cast<int>(b);
 }
+
+/*
+* Coordinate is used to keep track of minefield coordinates because a tuple<int,int> isn't very descriptive
+*/
+struct Coordinate
+{
+public:
+	int row;
+	int col;
+};
 
 /*
 * MineSweeper implements the most basic aspects of the game to build a dataset for training a model.
@@ -133,9 +142,9 @@ public:
 	* 
 	* @param	this_move		A tuple of ints specifying the <row, col> of this_move (should probably make a struct for this)
 	*/
-	void visit_cell(std::tuple<int, int> this_move)
+	void visit_cell(Coordinate this_move)
 	{
-		std::vector<std::tuple<int, int> > moves(0);
+		std::vector<Coordinate> moves(0);
 		moves.push_back(this_move);
 
 		while (!moves.empty())
@@ -143,8 +152,8 @@ public:
 			auto move = moves.back();
 			moves.pop_back();
 
-			int row = std::get<0>(move);
-			int col = std::get<1>(move);
+			int row = move.row;
+			int col = move.col;
 
 			_board[row][col] |= (1<<CellState::Visible);
 
@@ -154,8 +163,8 @@ public:
 					for (int c = col-1; c < col+2; c++)
 						if (0 <= r && r < _rows && 0 <= c && c < _cols)
 						{
-							if (!(_board[r][c]&1023) && !(_board[r][c]&(1<<CellState::Visible)))
-								moves.push_back(std::make_tuple(r,c));
+							if (!(_board[r][c] & 1023) && !(_board[r][c] & (1 << CellState::Visible)))
+								moves.push_back({ r, c });
 
 							_board[r][c] |= (1<<CellState::Visible);
 						}
@@ -175,12 +184,12 @@ public:
 	void make_random_safe_move()
 	{
 
-		std::vector<std::tuple<int, int> > moves(0);
+		std::vector<Coordinate> moves(0);
 		for (int r = 0; r < _rows; r++)
 			for (int c = 0; c < _cols; c++ )
 				if (!(_board[r][c] & (1<<CellState::Visible)) && !(_board[r][c] & (1<<CellState::Mined)))
 				{
-					moves.push_back(std::make_tuple(r,c));
+					moves.push_back({ r, c });
 				}
 
 		if (moves.empty())
@@ -204,12 +213,12 @@ public:
 	void make_random_safe_border_move()
 	{
 
-		std::vector<std::tuple<int, int> > moves(0);
+		std::vector<Coordinate> moves(0);
 		for (int r = 0; r < _rows; r++)
 			for (int c = 0; c < _cols; c++ )
 				if (!(_board[r][c] & (1<<CellState::Visible)) && !(_board[r][c] & (1<<CellState::Mined)) && (_board[r][c] & (1<<CellState::Border)))
 				{
-					moves.push_back(std::make_tuple(r,c));
+					moves.push_back({ r, c });
 				}
 
 		if (moves.empty())
