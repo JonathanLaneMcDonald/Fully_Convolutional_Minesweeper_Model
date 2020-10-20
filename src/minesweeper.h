@@ -21,14 +21,33 @@ enum class CellState
 	Mined
 };
 
+/*
+* I want to be able to do bitwise operations with CellStates, so overload this operator
+*/
 int operator<<(const int &a, const CellState &b)
 {
 	return a<<static_cast<int>(b);
 }
 
+/*
+* MineSweeper implements the most basic aspects of the game to build a dataset for training a model.
+* Safe moves are identified at each time step and a random safe move is selected to advance the game.
+*/
 class MineSweeper
 {
 public:
+
+	/*
+	* Construct an instance of MineSweeper and initialize it.
+	* 
+	* @param	rows		The number of rows the minefield is to have
+	* @param	cols		The number of columns the minefield will have
+	* @param	mines		The number of mines
+	* @param	gen			The entropy source -- a Mersenne Twister in this case
+	* @param	dis			The distribution being sampled by the entropy source
+	* 
+	* Note: We're interested in entropy and uniform distributions here so we can (pseudo)randomly place mines and make moves
+	*/
 	MineSweeper(int rows, int cols, int mines, std::mt19937& gen, std::uniform_real_distribution<>& dis)
 	: 	_rows(rows),
 		_cols(cols),
@@ -39,6 +58,9 @@ public:
 		reset();
 	}
 
+	/*
+	* (Re)Initialize the minefield.
+	*/
 	void reset()
 	{
 		_status = GameState::Fresh;
@@ -53,6 +75,9 @@ public:
 		update_border_field();
 	}
 
+	/*
+	* Distribute mines across the minefield.
+	*/
 	void initialize_mine_field()
 	{
 	    int r, c;
@@ -68,6 +93,9 @@ public:
 		}
 	}
 
+	/*
+	* Build the field that shows how many mines neighbor each cell.
+	*/
 	void initialize_proximity_field()
 	{
 		for (int row = 0; row < _rows; row ++)
@@ -82,6 +110,9 @@ public:
 			}
 	}
 
+	/*
+	* Identify cells that border visible ones because these are important for training a model.
+	*/
 	void update_border_field()
 	{
 		for (int row = 0; row < _rows; row ++)
@@ -96,6 +127,11 @@ public:
 			}
 	}
 
+	/*
+	* Visit a cell and handle the implications.
+	* 
+	* @param	this_move		A tuple of ints specifying the <row, col> of this_move (should probably make a struct for this)
+	*/
 	void visit_cell(std::tuple<int, int> this_move)
 	{
 		std::vector<std::tuple<int, int> > moves(0);
@@ -132,6 +168,9 @@ public:
 		_status = GameState::Underway;
 	}
 
+	/*
+	* Randomly make a safe move - we prefer making safe border moves, but if one isn't available, this will do.
+	*/
 	void make_random_safe_move()
 	{
 
@@ -155,6 +194,12 @@ public:
 		}
 	}
 
+	/*
+	* Make a random safe border move.
+	* 
+	* Note: This matters because we're using this to train a model, so we'll prefer to make moves that have information about them
+	* that will be available for a model to learn.
+	*/
 	void make_random_safe_border_move()
 	{
 
@@ -178,6 +223,9 @@ public:
 		}
 	}
 
+	/*
+	* Write the current board state, including known safe cells, as a string
+	*/
 	void state_to_frame()
 	{
 		char message[_rows*_cols+1];
@@ -200,11 +248,17 @@ public:
 		//std::cout << _frames.back() << std::endl;
 	}
 
+	/*
+	* Return a const ref to the current frames stack
+	*/
 	const std::vector<std::string>& get_frames()
 	{
 		return _frames;
 	}
 
+	/*
+	* Get a visual printout of everything that's happening right now
+	*/
 	void print_everything()
 	{
 		print_board("visibility", 1<<CellState::Visible);
@@ -213,6 +267,9 @@ public:
 		print_board("proximity", 1023, false);
 	}
 
+	/*
+	* Get a visual representation of a particular aspect of the game
+	*/
 	void print_board(const std::string message, int mask, bool mask_is_bitwise=true)
 	{
 		std::cout << message << std::endl << "board size=" << _board.size() << "x" << _board[0].size() << std::endl;
