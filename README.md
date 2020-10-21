@@ -12,9 +12,9 @@ The result was a model that makes safe moves 99.6% of the time, wins 41.1% of ga
 
 Check this out! The model playing in the gif and the associated code are available in src/
 
-![Minesweeper Model Demo :D](model_pwns_expert_minefield.gif)
+![Minesweeper Model Demo :D](model_pwns_expert_minefield.gif~)
 
-## Running Everything
+## Getting Started
 
 Before getting into detail on how all this works, a few details on how to proceed with compiling and running everything because I haven't made it particularly user-friendly yet :D
 
@@ -75,10 +75,43 @@ Before getting into detail on how all this works, a few details on how to procee
 
 ### Problem Definition
 
+The goal is to train a neural network to predict safe moves in games of minesweeper.
+
 ### Technical Considerations
+
+**Data Representation**
+
+Minesweeper is a 2D game where each cell can be mined, flagged, visited, or unvisited, but it's the layer that specifies the number of nearby mines that contains the information. 
+
+Here's my thought process: 
+* Discrete numbers can be represented as binary features in separate channels in the input
+* Unvisited cells can be represented by not setting any values for unvisited positions
+* The numbers 0-8 will cover all likely scenarios, but I'll throw in a channel for 9 ;)
+
+The result is a binary input with shape [None][r][c][10] where r=rows, c=cols, and 10 is the number of channels (and None is the sample dimension).
+
+**Training Objective**
+
+So what am I trying to predict, anyway? This took some trial and error because concepts like bias started seeping in. Anyway, the major approaches were as follows:
+1) There's a false equivalence here, but my first attempt was modeled after computer Go models like AlphaGo where I'd train the model to select *a* good move and then apply a softmax and use categorical crossentropy as my loss (even though Minesweeper isn't "that kind" of game).
+2) The successful approach was to have the model predict all safe moves in one go. So now we're using a sigmoid activation instead of a softmax and we're using a binary crossentropy loss instead of a categorical one. That's basically the current state of things.
+
 
 ### Concepts
 
+**Bias**
+
+
+
 ## Methods/Results:
 
-### Step 1: 
+### Step 1: Acquire Training Data
+
+### Step 2: Designing the Model
+
+### Step 3: Training the Model
+
+### Step 4: Evaluating the Model
+
+### Final Stage: Playing some vidja games
+
