@@ -121,8 +121,46 @@ Now that I've completed the process and figured out what works, I'll write it do
 
 ### Step 1: Acquire Training Data
 
+**Sampling**
 
+We obviously needs scads of data to train a model and Minesweeper puzzles are simple and cheap to generate, so there's no real need for augmentation. The process still needs to be fast, though, so I wrote a multithreaded C++ console application to generate a specified number of puzzles with specified properties. These puzzles are written to stdout and can be redirected to files as shown above.
 
+This data generator does the following steps (on a per-thread basis):
+1) Initializes a random game of Minesweeper
+2) Advances through the game, making guaranteed safe moves
+3) At each move, the game state and all safe "border" moves are labeled
+4) After playing the game to completion, saves a single, random frame from the game
+
+A million frames are generated in this way for separate training and validation sets and I can tell you a Threadripper makes short work of that!
+
+**Representation**
+
+We need a way of encoding frames once they've been generated. This is done as follows:
+
+* Numbers 0-9 count proximal mines
+* Question Mark (?) is used to represent unvisited cells
+* Exclamation Mark (!) is used to represent mines
+* The letter "s" is used to represent safe moves
+
+The following example was generated from a 10x10 grid with 12 mines.
+
+s101s1001!!101!1001s111221011s001!s111!s0012s!sss!0001!s1s??1212111s??!2!1001!??sss2111s????s1!sss??
+
+Looking at this a little differently, you can see the puzzle! (sort of, eheh...)
+
+    s 1 0 1 s 1 0 0 1 !
+    ! 1 0 1 ! 1 0 0 1 s
+    1 1 1 2 2 1 0 1 1 s
+    0 0 1 ! s 1 1 1 ! s
+    0 0 1 2 s ! s s s !
+    0 0 0 1 ! s 1 s ? ?
+    1 2 1 2 1 1 1 s ? ?
+    ! 2 ! 1 0 0 1 ! ? ?
+    s s s 2 1 1 1 s ? ?
+    ? ? s 1 ! s s s ? ?
+
+So in this case, we're training a model to take this string, reshape it to the right dimensions, encode everything that has a numerical value and predict all the values marked as safe.
+ 
 ### Step 2: Designing the Model
 
 ### Step 3: Training the Model
