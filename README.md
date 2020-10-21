@@ -71,7 +71,7 @@ Before getting into detail on how all this works, a few details on how to procee
     
     * Note: models only work on the grid size they were trained on (for now)
 
-## Introduction/Overview
+## Overview
 
 ### Problem Definition
 
@@ -93,19 +93,35 @@ The result is a binary input with shape [None][r][c][10] where r=rows, c=cols, a
 **Training Objective**
 
 So what am I trying to predict, anyway? This took some trial and error because concepts like bias started seeping in. Anyway, the major approaches were as follows:
-1) There's a false equivalence here, but my first attempt was modeled after computer Go models like AlphaGo where I'd train the model to select *a* good move and then apply a softmax and use categorical crossentropy as my loss (even though Minesweeper isn't "that kind" of game).
-2) The successful approach was to have the model predict all safe moves in one go. So now we're using a sigmoid activation instead of a softmax and we're using a binary crossentropy loss instead of a categorical one. That's basically the current state of things.
 
+1) There's a false equivalence here, but my first attempt was modeled after computer Go models like AlphaGo where I'd train the model to select *a* good move and then apply a softmax and use categorical crossentropy as my loss (even though Minesweeper isn't "that kind" of game).
+
+2) The more successful approach was to have the model predict all safe moves in one go. So now we're using a sigmoid activation instead of a softmax and we're using a binary crossentropy loss instead of a categorical one. That's basically the current state of things.
 
 ### Concepts
 
 **Bias**
 
+I had a bias problem with the first version of my Minesweeper model and I had basically already written the next version before I realized what that bias was. It took me a while to notice because it's kind of subtle, but the reader may figure it out before I get to the punchline.
 
+There's a sampling bias hidden in the following conditions:
+* Start with a randomly initialized model
+* Train the model on reward signals from its experience
+* Allow the model to make completely random moves
+
+Have a think if it hasn't hit you yet...
+
+So I'll get on with it. I'm pretty sure the bias showed up in the last step where the model was allowed to make completely random decisions. This means it was allowed to select cells about which it had no information what-so-ever. This is an oversight because, in Minesweeper, an expert puzzle is 16x30 with 99 mines. That's 99 mines for 480 cells or roughly 20% mines. This means that if you pick a random cell and have no information available about it, you'll be safe roughly 80% of the time, but you won't have any features to associate that with. Your model is learning that it'll have a decent chance of being safe in the next move if it just takes a stab in the dark! That may work for a few moves, but it won't work for 150+ moves that are necessary for solving an expert puzzle.
+
+It's entirely possible, and maybe even likely, that my model would have learned to stick with border cells eventually, but it proves a point at the very least. As a developer, I could have guided the model to make random selections about cells it had information about, for example. I may come back to that.
 
 ## Methods/Results:
 
+Now that I've completed the process and figured out what works, I'll write it down as though I planned it this way :D
+
 ### Step 1: Acquire Training Data
+
+
 
 ### Step 2: Designing the Model
 
