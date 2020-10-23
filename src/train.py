@@ -12,7 +12,7 @@ from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 
 
-def build_2d_model(filters, kernels, layers):
+def build_2d_model(filters, kernels, blocks):
 	"""Build a model to play minesweeper!"""
 	
 	# Here, we're taking a 3D input in the form of a 2D grid with multiple channels
@@ -26,8 +26,13 @@ def build_2d_model(filters, kernels, layers):
 	x = Dropout(0.2)(x)
 	
 	# Do this over and over... the Add() is our residual connection
-	for _ in range(layers-1):
+	for _ in range(blocks):
 		y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
+		y = BatchNormalization()(y)
+		y = Activation('relu')(y)
+		y = Dropout(0.2)(y)
+
+		y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(y)
 		y = BatchNormalization()(y)
 		y = Activation('relu')(y)
 		y = Dropout(0.2)(y)
@@ -127,6 +132,6 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 
 
 if len(argv) == 3:
-	train_model_from_file(argv[1], argv[2], build_2d_model(32, (3, 3), 20), (GRID_R, GRID_C))
+	train_model_from_file(argv[1], argv[2], build_2d_model(32, (3, 3), 10), (GRID_R, GRID_C))
 else:
 	print('Usage: python train.py [training dataset path] [validation dataset path]')
