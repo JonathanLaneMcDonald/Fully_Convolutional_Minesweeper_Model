@@ -254,7 +254,13 @@ I'll just refer to my commented code on this one ;)
 
 ### Step 3: Training the Model
 
+We've already done the training/validation split by generating separate files for those and keeping them separate in code.
+
+This part is all pretty straightforward. The code can be found near the bottom of train.py
+
 ### Step 4: Evaluating the Model
+
+
 
 ### Final Stage: Playing some vidja games
 
