@@ -135,7 +135,7 @@ A million frames are generated in this way for separate training and validation 
 
 **Representation**
 
-We need a way of encoding frames once they've been generated. This is done as follows:
+We need a way of encoding frames once they've been generated. I've done this as follows:
 
 * Numbers 0-9 count proximal mines
 * Question Mark (?) is used to represent unvisited cells
@@ -162,6 +162,95 @@ Looking at this a little differently, you can see the puzzle! (sort of, eheh...)
 So in this case, we're training a model to take this string, reshape it to the right dimensions, encode everything that has a numerical value and predict all the values marked as safe.
  
 ### Step 2: Designing the Model
+
+The model architecture is based on the data representation and the training objective. As described above, I settled on a 3D binary representation of the minefield in which the third dimension represents the number of mines proximal to a particular position and a 2D output layer into which the estimated safety of each position is projected.
+
+**Notes**
+
+I'll introduce a few concepts and then narrate the model-building code with fancy comments ;D
+
+* Using padded convolutions
+
+    The normal mode of operation for convolutions is for the receiving surface to be smaller than the originating surface. This change in dimensionality basically precludes the possibility of accurately localizing features of interest in the input (same reason we don't use pooling layers unless we can carry that positional information through some other way -- looking at you, Inception Block!).
+        
+    Anyway, Minesweeper is a game where we're literally navigating a figurative minefield, so accuracy and precision need to be preserved. This is done by padding our convolutions by exactly the amount that would be removed during application of that layer, thereby preserving the original feature shape as we move through our hidden layers.
+    
+    Another place I've used padded convolutions: a neural part-of-speech tagger I trained. How about that!
+
+* Using residual connections
+
+    My Minesweeper model isn't particularly deep. It's only 20 convolutional layers for the expert puzzle, but the Sudoku model is significantly deeper at like 100 convolutional layers, so this is more relevant there. In any case, I've grown accustom to using residual connections for any shape-preserving model deeper than just a few layers.
+    
+    Residual connections were developed "ages" ago and enable the training of exceptionally deep models by providing a more direct route for updating weights that are far away from the point of origin of an update signal.
+    
+* Using a sigmoid activation with a binary crossentropy loss
+
+    Just to make a note that the output activation and the loss functions are different in a case like this than they are in a "categorization" problem where there's only one right answer. 
+    
+    * When there's one right answer
+    
+        You're setting the activation to 1 on one specific neuron, so you'll be aiming for softmax and categorical crossentropy.
+
+    * When there can be many right answers
+    
+        You're potentially setting many values to 1 and many to 0, so softmax won't get you there. You're looking for sigmoid and binary crossentropy.
+
+**Model Code**
+
+I've basically settled on a ResNet, sans-pooling layers. I need to preserve the input shape because I'm making "per-pixel" predictions about where it's safe to step. So, to that end, start by pulling in some basic hyperparameters.
+
+```
+def build_2d_model(filters, kernels, blocks):
+    """Build a model to play minesweeper!"""
+```
+
+Next, we specify the input shape with variables from common.py. It's clear that we're expecting a 3D input shape per sample.
+
+```
+    # Here, we're taking a 3D input in the form of a 2D grid with multiple channels
+    # The channels are my way of representing discrete numbers to the model (how many nearby cells are mined?)
+    inputs = Input(shape=(GRID_R, GRID_C, CHANNELS))
+```
+
+We're looking to build residual connections between blocks, so we'll start by projecting into the dimensionality that will be maintained throughout the hidden states (e.g. [GRID_R][GRID_C][CHANNELS] -> [GRID_R][GRID_C][filters])
+
+```
+    # Start by projecting into a different 3D space so we can start using residual connections right away
+    x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(inputs)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = Dropout(0.2)(x)
+```
+
+Add the specified number of residual blocks.
+    
+```
+    # Do this over and over... the Add() is our residual connection
+    for _ in range(blocks):
+        y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
+        y = BatchNormalization()(y)
+        y = Activation('relu')(y)
+        y = Dropout(0.2)(y)
+
+        y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(y)
+        y = BatchNormalization()(y)
+        y = Activation('relu')(y)
+        y = Dropout(0.2)(y)
+        x = Add()([x, y])
+```
+
+I'll just refer to my commented code on this one ;)
+
+```
+    # Project into a space that "squeezes" to 2D and apply a sigmoid to map from 0 to 1
+    # This 0 to 1 mapping works well with the binary_crossentropy loss function, because...
+    # We're predicting which cells are safe and that's more of a multi-out regression than a classification
+    outputs = Conv2D(filters=1, kernel_size=(1, 1), padding='same', activation='sigmoid')(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+    model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
+    return model
+```
 
 ### Step 3: Training the Model
 
