@@ -7,7 +7,7 @@ from MinesweeperClass import *
 from numpy.random import shuffle
 
 from keras.models import Model, save_model
-from keras.layers import Input, Dropout, Activation, Conv2D, Add
+from keras.layers import Input, Activation, Conv2D, Add
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 
@@ -23,19 +23,16 @@ def build_2d_model(filters, kernels, blocks):
 	x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(inputs)
 	x = BatchNormalization()(x)
 	x = Activation('relu')(x)
-	x = Dropout(0.2)(x)
-	
+
 	# Do this over and over... the Add() is our residual connection
 	for _ in range(blocks):
 		y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
 		y = BatchNormalization()(y)
 		y = Activation('relu')(y)
-		y = Dropout(0.2)(y)
 
 		y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(y)
 		y = BatchNormalization()(y)
 		y = Activation('relu')(y)
-		y = Dropout(0.2)(y)
 		x = Add()([x, y])
 
 	# Project into a space that "squeezes" to 2D and apply a sigmoid to map from 0 to 1
@@ -100,13 +97,13 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 	validation_dataset = [x for x in open(validation_datafile, 'r').read().split('\n') if len(x) == shape[0]*shape[1]]
 	print(len(validation_dataset), 'items loaded into validation dataset')
 
-	model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
+	model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.001), metrics=['accuracy'])
 
 	batch_size = 32
 	training_samples = 10000 * batch_size
 	validation_samples = training_samples // 10
 	history = dict()
-	for e in range(1000):
+	for e in range(100):
 
 		shuffle(training_dataset)
 		shuffle(validation_dataset)
@@ -132,6 +129,6 @@ def train_model_from_file(training_datafile, validation_datafile, model, shape):
 
 
 if len(argv) == 3:
-	train_model_from_file(argv[1], argv[2], build_2d_model(32, (3, 3), 10), (GRID_R, GRID_C))
+	train_model_from_file(argv[1], argv[2], build_2d_model(16, (3, 3), 5), (GRID_R, GRID_C))
 else:
 	print('Usage: python train.py [training dataset path] [validation dataset path]')
