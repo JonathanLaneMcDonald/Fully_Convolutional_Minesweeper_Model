@@ -50,7 +50,7 @@ Before getting into detail on how all this works, a few details on how to procee
 3) Evaluate a trained model
 
     ```
-    python evaluate.py "minesweeper model 16x30x99"
+    python evaluate.py "minesweeper model 16x30x99.h5"
     ```
     
     Running evaluate.py with a model will give you some cryptic output about win rates and safe move rates and likelihood that a random sampler would get the same results and stuff like that. It's pretty cool :D
@@ -66,7 +66,7 @@ Before getting into detail on how all this works, a few details on how to procee
     To play *with* model integration, include the path to a trained model
     
     ```
-    python play.py "minesweeper model 16x30x99"
+    python play.py "minesweeper model 16x30x99.h5"
     ```
     
     * Note: models only work on the grid size they were trained on (for now)
@@ -219,7 +219,6 @@ We're looking to build residual connections between blocks, so we'll start by pr
     x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(inputs)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = Dropout(0.2)(x)
 ```
 
 Add the specified number of residual blocks.
@@ -230,12 +229,10 @@ Add the specified number of residual blocks.
         y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
         y = BatchNormalization()(y)
         y = Activation('relu')(y)
-        y = Dropout(0.2)(y)
 
         y = Conv2D(filters=filters, kernel_size=kernels, padding='same')(y)
         y = BatchNormalization()(y)
         y = Activation('relu')(y)
-        y = Dropout(0.2)(y)
         x = Add()([x, y])
 ```
 
@@ -248,6 +245,6 @@ I'll just refer to my commented code on this one ;)
     outputs = Conv2D(filters=1, kernel_size=(1, 1), padding='same', activation='sigmoid')(x)
 
     model = Model(inputs=inputs, outputs=outputs)
-    model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
+    model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.001), metrics=['accuracy'])
     return model
 ```
