@@ -119,7 +119,7 @@ It's entirely possible, and maybe even likely, that my model would have learned 
 
 Now that I've completed the process and figured out what works, I'll write it down as though I planned it this way :D
 
-### Step 1: Acquire Training Data
+### Acquire Training Data
 
 **Sampling**
 
@@ -160,8 +160,8 @@ Looking at this a little differently, you can see the puzzle! (sort of, eheh...)
     ? ? s 1 ! s s s ? ?
 
 So in this case, we're training a model to take this string, reshape it to the right dimensions, encode everything that has a numerical value and predict all the values marked as safe.
- 
-### Step 2: Designing the Model
+
+### Designing the Model
 
 The model architecture is based on the data representation and the training objective. As described above, I settled on a 3D binary representation of the minefield in which the third dimension represents the number of mines proximal to a particular position and a 2D output layer into which the estimated safety of each position is projected.
 
@@ -251,16 +251,3 @@ I'll just refer to my commented code on this one ;)
     model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
     return model
 ```
-
-### Step 3: Training the Model
-
-We've already done the training/validation split by generating separate files for those and keeping them separate in code.
-
-This part is all pretty straightforward. The code can be found near the bottom of train.py
-
-### Step 4: Evaluating the Model
-
-
-
-### Final Stage: Playing some vidja games
-
